@@ -26,6 +26,10 @@ export const adminAPI = {
   updateMovie: (id: string, data: any) => client.put(`/admin/movies/${id}`, data),
   deleteMovie: (id: string) => client.delete(`/admin/movies/${id}`),
   getAnalytics: () => client.get('/admin/analytics'),
+  getClicksOverview: () => client.get('/admin/clicks/overview'),
+  getClicksByType: (range = 'all') => client.get('/admin/clicks/by-type', { params: { range } }),
+  getTopClicks: (params?: any) => client.get('/admin/clicks/top', { params }),
+  getClicksForMovie: (movieId: string) => client.get(`/admin/clicks/movie/${movieId}`),
   getSiteLinks: () => client.get('/admin/sitelinks'),
   createSiteLink: (data: any) => client.post('/admin/sitelinks', data),
   updateSiteLink: (id: string, data: any) =>

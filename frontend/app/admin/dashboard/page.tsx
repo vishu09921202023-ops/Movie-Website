@@ -82,6 +82,12 @@ export default function AdminDashboard() {
           >
             Site Links
           </Link>
+          <Link
+            href="/admin/analytics"
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded font-bold transition"
+          >
+            📊 Click Analytics
+          </Link>
         </div>
 
         {/* Top Movies */}

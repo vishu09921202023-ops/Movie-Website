@@ -140,6 +140,8 @@ router.post('/:id/download', downloadLimiter, async (req, res) => {
     const ipHash = hashIP(req.ip);
     await Analytics.create({
       movieId: req.params.id,
+      movieTitle: movie.cleanTitle || movie.title || '',
+      contentType: movie.type || 'movie',
       event: 'download',
       quality,
       ipHash,

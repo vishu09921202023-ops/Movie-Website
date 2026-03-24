@@ -8,6 +8,8 @@ const analyticsSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    movieTitle: { type: String, default: '' },
+    contentType: { type: String, default: 'movie' },
     event: {
       type: String,
       enum: ['view', 'download'],

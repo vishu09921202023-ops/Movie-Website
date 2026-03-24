@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  distDir: '.next4',
+  distDir: '.next5',
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
