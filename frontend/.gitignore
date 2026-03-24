@@ -1,6 +1,8 @@
 .env.local
 node_modules/
 .next/
+.next3/
+.next4/
 build/
 .DS_Store
 *.log
