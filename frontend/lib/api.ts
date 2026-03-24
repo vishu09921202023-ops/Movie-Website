@@ -15,6 +15,7 @@ export const movieAPI = {
   recordView: (id: string) => client.post(`/movies/${id}/view`),
   download: (id: string, quality: string) =>
     client.post(`/movies/${id}/download`, { quality }),
+  getSiteLinks: () => client.get('/movies/sitelinks/public'),
 };
 
 export const adminAPI = {

@@ -100,6 +100,8 @@ const movieSchema = new mongoose.Schema(
       default: new Map(),
     },
     tags: [String],
+    screenshots: [String],
+    telegramUrl: String,
     postedAt: {
       type: Date,
       default: Date.now,

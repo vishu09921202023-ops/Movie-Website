@@ -3,14 +3,8 @@ const nextConfig = {
   distDir: '.next3',
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'image.tmdb.org',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.githubusercontent.com',
-      },
+      { protocol: 'https', hostname: '**' },
+      { protocol: 'http', hostname: '**' },
     ],
   },
   reactStrictMode: true,

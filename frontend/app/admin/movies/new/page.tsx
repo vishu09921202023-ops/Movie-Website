@@ -39,12 +39,15 @@ export default function NewMovie() {
     isFeatured: false,
     isAdult: false,
     tags: [] as string[],
+    screenshots: [] as string[],
+    telegramUrl: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [audioInput, setAudioInput] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [screenshotInput, setScreenshotInput] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -127,6 +130,17 @@ export default function NewMovie() {
     }));
   };
 
+  const handleAddScreenshot = () => {
+    if (screenshotInput.trim()) {
+      setFormData(prev => ({ ...prev, screenshots: [...prev.screenshots, screenshotInput.trim()] }));
+      setScreenshotInput('');
+    }
+  };
+
+  const handleRemoveScreenshot = (idx: number) => {
+    setFormData(prev => ({ ...prev, screenshots: prev.screenshots.filter((_, i) => i !== idx) }));
+  };
+
   const toggleQuality = (quality: string) => {
     setFormData(prev => ({
       ...prev,
@@ -142,10 +156,29 @@ export default function NewMovie() {
     setLoading(true);
 
     try {
-      await adminAPI.createMovie(formData);
+      // Clean and coerce data before sending
+      const payload: any = {
+        ...formData,
+        // Ensure numbers are actual numbers, not strings
+        releaseYear: formData.releaseYear ? Number(formData.releaseYear) : undefined,
+        imdbRating: formData.imdbRating ? Number(formData.imdbRating) : undefined,
+        // Convert empty strings to undefined so optional validators pass
+        releaseDate: formData.releaseDate ? new Date(formData.releaseDate).toISOString() : undefined,
+        posterUrl: formData.posterUrl || undefined,
+        backdropUrl: formData.backdropUrl || undefined,
+        duration: formData.duration || undefined,
+        description: formData.description || undefined,
+        telegramUrl: formData.telegramUrl || undefined,
+        screenshots: formData.screenshots.filter(s => s.trim()),
+        // Filter out incomplete download links (missing url)
+        downloadLinks: formData.downloadLinks.filter(l => l.url && l.url.trim()),
+      };
+
+      await adminAPI.createMovie(payload);
       router.push('/admin/movies');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create movie');
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Failed to create movie';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -487,6 +520,46 @@ export default function NewMovie() {
                 + Add Download Link
               </button>
             </div>
+          </div>
+
+          {/* Screenshots */}
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Screenshots</h2>
+            <p className="text-gray-400 text-sm mb-3">Add URL links to movie screenshots/stills that will appear on the movie page.</p>
+            <div className="flex gap-2 mb-3">
+              <input
+                type="url"
+                value={screenshotInput}
+                onChange={(e) => setScreenshotInput(e.target.value)}
+                placeholder="https://... screenshot image URL"
+                className="flex-1 bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddScreenshot())}
+              />
+              <button type="button" onClick={handleAddScreenshot} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                Add
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {formData.screenshots.map((url, idx) => (
+                <div key={idx} className="relative bg-gray-800 rounded p-2 flex items-center gap-2">
+                  <span className="text-gray-400 text-xs flex-1 truncate">{url}</span>
+                  <button type="button" onClick={() => handleRemoveScreenshot(idx)} className="text-red-400 hover:text-red-300 font-bold">×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Telegram URL */}
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Telegram Channel</h2>
+            <input
+              type="url"
+              name="telegramUrl"
+              value={formData.telegramUrl}
+              onChange={handleInputChange}
+              placeholder="https://t.me/yourchannel"
+              className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded"
+            />
           </div>
 
           {/* Action Buttons */}

@@ -1,6 +1,7 @@
 const express = require('express');
 const Movie = require('../models/Movie');
 const Analytics = require('../models/Analytics');
+const SiteLink = require('../models/SiteLink');
 const { downloadLimiter } = require('../middleware/rateLimit');
 const { downloadSchema } = require('../middleware/validate');
 const crypto = require('crypto');
@@ -154,6 +155,15 @@ router.post('/:id/download', downloadLimiter, async (req, res) => {
     if (error.name === 'ZodError') {
       return res.status(400).json({ error: 'Invalid quality' });
     }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/sitelinks/public', async (req, res) => {
+  try {
+    const links = await SiteLink.find({ isActive: true }).sort({ row: 1, order: 1 });
+    res.json(links);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

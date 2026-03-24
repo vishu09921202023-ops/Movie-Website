@@ -30,6 +30,8 @@ export interface Movie {
   views?: number;
   downloads?: Record<string, number>;
   tags?: string[];
+  screenshots?: string[];
+  telegramUrl?: string;
   postedAt?: string;
   createdAt?: string;
   updatedAt?: string;

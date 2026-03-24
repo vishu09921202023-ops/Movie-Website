@@ -27,6 +27,7 @@ export default function EditMovie() {
   const [error, setError] = useState('');
   const [audioInput, setAudioInput] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [screenshotInput, setScreenshotInput] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -128,6 +129,17 @@ export default function EditMovie() {
     } : null);
   };
 
+  const handleAddScreenshot = () => {
+    if (screenshotInput.trim() && formData) {
+      setFormData(prev => prev ? { ...prev, screenshots: [...((prev as any).screenshots || []), screenshotInput.trim()] } : null);
+      setScreenshotInput('');
+    }
+  };
+
+  const handleRemoveScreenshot = (idx: number) => {
+    setFormData(prev => prev ? { ...prev, screenshots: ((prev as any).screenshots || []).filter((_: any, i: number) => i !== idx) } : null);
+  };
+
   const toggleGenre = (genre: string) => {
     setFormData(prev => prev ? {
       ...prev,
@@ -154,10 +166,23 @@ export default function EditMovie() {
     setSubmitting(true);
 
     try {
-      await adminAPI.updateMovie(id, formData);
+      const payload: any = {
+        ...formData,
+        releaseYear: formData.releaseYear ? Number(formData.releaseYear) : undefined,
+        imdbRating: formData.imdbRating ? Number(formData.imdbRating) : undefined,
+        releaseDate: formData.releaseDate ? new Date(formData.releaseDate).toISOString() : undefined,
+        posterUrl: formData.posterUrl || undefined,
+        backdropUrl: formData.backdropUrl || undefined,
+        duration: formData.duration || undefined,
+        description: formData.description || undefined,
+        telegramUrl: (formData as any).telegramUrl || undefined,
+        screenshots: ((formData as any).screenshots || []).filter((s: string) => s.trim()),
+        downloadLinks: (formData.downloadLinks || []).filter((l: any) => l.url && l.url.trim()),
+      };
+      await adminAPI.updateMovie(id, payload);
       router.push('/admin/movies');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update movie');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to update movie');
     } finally {
       setSubmitting(false);
     }
@@ -499,6 +524,54 @@ export default function EditMovie() {
                 + Add Download Link
               </button>
             </div>
+          </div>
+
+          {/* Screenshots */}
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Screenshots</h2>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="url"
+                value={screenshotInput}
+                onChange={(e) => setScreenshotInput(e.target.value)}
+                placeholder="Screenshot image URL"
+                className="flex-1 bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded"
+              />
+              <button
+                type="button"
+                onClick={handleAddScreenshot}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Add
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {((formData as any).screenshots || []).map((url: string, idx: number) => (
+                <div key={idx} className="relative group">
+                  <img src={url} alt={`Screenshot ${idx + 1}`} className="w-full h-32 object-cover rounded" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveScreenshot(idx)}
+                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Telegram Channel */}
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Telegram Channel URL</h2>
+            <input
+              type="url"
+              name="telegramUrl"
+              value={(formData as any).telegramUrl || ''}
+              onChange={handleInputChange}
+              placeholder="https://t.me/yourchannel"
+              className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded"
+            />
           </div>
 
           {/* Action Buttons */}

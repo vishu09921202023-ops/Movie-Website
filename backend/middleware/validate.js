@@ -1,12 +1,12 @@
 const { z } = require('zod');
 
 const movieSchema = z.object({
-  title: z.string().min(5),
-  cleanTitle: z.string().min(2),
+  title: z.string().min(1),
+  cleanTitle: z.string().min(1),
   description: z.string().optional(),
-  posterUrl: z.string().url().optional(),
-  backdropUrl: z.string().url().optional(),
-  releaseDate: z.string().datetime().optional(),
+  posterUrl: z.string().url().optional().or(z.literal('')),
+  backdropUrl: z.string().url().optional().or(z.literal('')),
+  releaseDate: z.string().datetime().optional().or(z.literal('')),
   releaseYear: z.number().int().min(1900).max(2100).optional(),
   source: z
     .enum(['WEB-DL', 'BluRay', 'WEBRip', 'HDCAM', 'DVDRIP', 'HDTV'])
@@ -36,9 +36,9 @@ const movieSchema = z.object({
     .array(
       z.object({
         quality: z.string(),
-        size: z.string(),
+        size: z.string().optional().or(z.literal('')),
         url: z.string().url(),
-        label: z.string(),
+        label: z.string().optional().or(z.literal('')),
       })
     )
     .optional(),
@@ -48,6 +48,8 @@ const movieSchema = z.object({
   isFeatured: z.boolean().optional(),
   isAdult: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
+  screenshots: z.array(z.string().url()).optional(),
+  telegramUrl: z.string().url().optional().or(z.literal('')),
 });
 
 const loginSchema = z.object({

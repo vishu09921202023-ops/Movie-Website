@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { movieAPI, adminAPI } from '@/lib/api';
+import { movieAPI } from '@/lib/api';
 import MovieGrid from '@/components/MovieGrid';
 import QuickFilters from '@/components/QuickFilters';
 import { Movie, SiteLink } from '@/lib/types';
@@ -34,7 +34,7 @@ export default function Home() {
           movieAPI.getMovies({ type: 'kdrama', limit: 12 }),
           movieAPI.getMovies({ ott: 'netflix', limit: 12 }),
           movieAPI.getMovies({ ott: 'amazon', limit: 12 }),
-          adminAPI.getSiteLinks(),
+          movieAPI.getSiteLinks(),
         ]);
 
         setLatest(latestRes.data.movies);
