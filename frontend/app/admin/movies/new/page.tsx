@@ -535,8 +535,8 @@ export default function NewMovie() {
                 className="flex-1 bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded"
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddScreenshot())}
               />
-              <button type="button" onClick={handleAddScreenshot} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                Add
+              <button type="button" onClick={handleAddScreenshot} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-xl font-bold leading-none" title="Add screenshot">
+                +
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
