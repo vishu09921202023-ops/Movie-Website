@@ -13,9 +13,13 @@ yarn.lock
 
 # Build outputs
 .next/
+.next3/
 build/
 dist/
 out/
+
+# Backup files
+*.bak
 
 # IDE
 .vscode/

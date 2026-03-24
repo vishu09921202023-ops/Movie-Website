@@ -1,6 +1,6 @@
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  distDir: '.next3',
   images: {
     remotePatterns: [
       {
@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
     ],
   },
   reactStrictMode: true,
-  swcMinify: true,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
     NEXT_PUBLIC_SITE_NAME: process.env.NEXT_PUBLIC_SITE_NAME || 'Vegamovies',
@@ -22,4 +21,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+module.exports = nextConfig

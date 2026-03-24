@@ -504,6 +504,14 @@ const SITE_LINKS_ROW_2 = [
   },
 ];
 
+function generateSlug(cleanTitle) {
+  return cleanTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
 async function seed() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -515,7 +523,12 @@ async function seed() {
 
     console.log('Cleared existing data');
 
-    const createdMovies = await Movie.insertMany(SAMPLE_MOVIES);
+    const moviesWithSlugs = SAMPLE_MOVIES.map((movie, index) => ({
+      ...movie,
+      slug: generateSlug(movie.cleanTitle) + (index > 0 ? `-${index}` : ''),
+    }));
+
+    const createdMovies = await Movie.insertMany(moviesWithSlugs);
     console.log(`Created ${createdMovies.length} movies`);
 
     const admin = new Admin({

@@ -25,7 +25,7 @@ body {
 }
 
 .movie-card:hover {
-  @apply scale-103 brightness-110;
+  @apply scale-105 brightness-110;
   border: 1px solid #333333;
 }
 
