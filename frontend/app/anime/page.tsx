@@ -28,8 +28,8 @@ export default function Anime() {
   }, [page]);
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">🎌 Anime</h1>
+    <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-8 animate-fade-in-up">
+      <h1 className="text-3xl font-black mb-2">Top <span className="gradient-text">Anime</span></h1>
       {data && (
         <>
           <p className="text-gray-400 mb-6">Total: {data.pagination.total} anime series</p>

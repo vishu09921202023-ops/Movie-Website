@@ -4,12 +4,12 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'Vegamovies - Download Movies 720p, 1080p, 4K',
+  title: 'VN Movies HD - Download Movies 720p, 1080p, 4K',
   description: 'Download Latest Bollywood, Hollywood, Anime, K-Drama Movies in 720p, 1080p, and 4K Quality',
   openGraph: {
-    title: 'Vegamovies - Download Movies',
+    title: 'VN Movies HD - Download Movies',
     description: 'Download latest movies in HD quality',
-    siteName: 'Vegamovies',
+    siteName: 'VN Movies HD',
   },
 };
 
@@ -20,9 +20,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-bg-primary text-text-primary">
+      <body className="bg-[#030712] text-white antialiased">
         <Navbar />
-        <main className="max-w-7xl mx-auto px-4 py-8 min-h-screen">
+        <main className="min-h-screen">
           {children}
         </main>
         <Footer />

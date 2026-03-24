@@ -51,16 +51,16 @@ export default function Browse() {
   ];
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">Browse Movies</h1>
+    <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-8 animate-fade-in-up">
+      <h1 className="text-3xl font-black mb-2">Browse <span className="gradient-text">Movies</span></h1>
 
       {/* Active Filters */}
       {activeFilters.length > 0 && (
-        <div className="mb-6 flex flex-wrap gap-2">
+        <div className="mb-6 mt-4 flex flex-wrap gap-2">
           {activeFilters.map((filter) => (
             <div
               key={filter.param}
-              className="bg-red-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2"
+              className="bg-red-600/20 border border-red-500/30 text-red-300 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"
             >
               {filter.label}
               <button
@@ -69,9 +69,9 @@ export default function Browse() {
                   params.delete(filter.param);
                   window.location.href = `/browse?${params.toString()}`;
                 }}
-                className="hover:opacity-70"
+                className="hover:text-white transition-colors ml-1"
               >
-                ×
+                &times;
               </button>
             </div>
           ))}

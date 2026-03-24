@@ -1,7 +1,7 @@
 {
-  "name": "vegamovies-backend",
+  "name": "vnmovieshd-backend",
   "version": "1.0.0",
-  "description": "Backend API for Vegamovies clone",
+  "description": "Backend API for VN Movies HD",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -13,43 +13,27 @@ export default function QuickFilters({ links }: QuickFiltersProps) {
 
   if (links.length === 0) return null;
 
-  return (
-    <div className="space-y-4 my-6">
-      {/* Row 1 */}
-      {row1.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {row1.map((link) => (
-            <Link
-              key={link._id}
-              href={link.url}
-              target={link.url.startsWith('http') ? '_blank' : undefined}
-              rel={link.url.startsWith('http') ? 'noopener noreferrer' : undefined}
-              className="px-4 py-2 rounded-full font-bold text-white hover:opacity-90 transition"
-              style={{ backgroundColor: link.color }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      )}
+  const renderRow = (items: SiteLink[]) => (
+    <div className="flex flex-wrap gap-2.5">
+      {items.map((link, i) => (
+        <Link
+          key={link._id}
+          href={link.url}
+          target={link.url.startsWith('http') ? '_blank' : undefined}
+          rel={link.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+          className="px-4 py-2 rounded-lg font-semibold text-white text-sm hover:brightness-110 active:scale-95 transition-all duration-200 shadow-lg animate-fade-in-up"
+          style={{ backgroundColor: link.color, animationDelay: `${i * 50}ms`, boxShadow: `0 4px 14px ${link.color}33` }}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  );
 
-      {/* Row 2 */}
-      {row2.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {row2.map((link) => (
-            <Link
-              key={link._id}
-              href={link.url}
-              target={link.url.startsWith('http') ? '_blank' : undefined}
-              rel={link.url.startsWith('http') ? 'noopener noreferrer' : undefined}
-              className="px-4 py-2 rounded-full font-bold text-white hover:opacity-90 transition"
-              style={{ backgroundColor: link.color }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      )}
+  return (
+    <div className="space-y-3 my-6">
+      {row1.length > 0 && renderRow(row1)}
+      {row2.length > 0 && renderRow(row2)}
     </div>
   );
 }

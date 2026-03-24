@@ -1,7 +1,7 @@
 {
-  "name": "vegamovies-frontend",
+  "name": "vnmovieshd-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Vegamovies clone",
+  "description": "Frontend for VN Movies HD",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

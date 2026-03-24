@@ -1,6 +1,6 @@
 export default function Sitemap() {
   const currentYear = new Date().getFullYear();
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vegamovies.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vnmovieshd.com';
 
   const urls = [
     '/',
@@ -42,16 +42,14 @@ export default function Sitemap() {
 </urlset>`;
 
   return (
-    <div>
-      <h1 className="text-4xl font-bold mb-6">Sitemap</h1>
-      <div className="bg-gray-900 p-6 rounded-lg">
-        <p className="text-gray-300 mb-4">
-          Below is a list of all pages on the Vegamovies website. This sitemap helps search engines index our content.
-        </p>
-        <ul className="space-y-2 text-blue-400">
+    <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
+      <h1 className="text-3xl lg:text-4xl font-black mb-8"><span className="gradient-text">Sitemap</span></h1>
+      <div className="glass rounded-2xl border border-white/5 p-6 lg:p-8">
+        <p className="text-gray-400 mb-5">All pages on VN Movies HD. Helps search engines index our content.</p>
+        <ul className="space-y-2">
           {urls.map((url) => (
             <li key={url}>
-              <a href={url} className="hover:underline">
+              <a href={url} className="text-red-400 hover:text-red-300 text-sm transition-colors">
                 {url === '/' ? 'Home' : url}
               </a>
             </li>

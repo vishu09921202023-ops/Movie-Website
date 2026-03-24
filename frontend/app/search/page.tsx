@@ -34,9 +34,9 @@ export default function Search() {
   }, [query, page]);
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-2">{data?.pagination.total || 0} results for "{query}"</h1>
-      <p className="text-gray-400 mb-6">
+    <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-8 animate-fade-in-up">
+      <h1 className="text-3xl font-black mb-2">{data?.pagination.total || 0} results for &ldquo;<span className="gradient-text">{query}</span>&rdquo;</h1>
+      <p className="text-gray-500 text-sm mb-6">
         Showing {(data?.pagination.page || 1 - 1) * 20 + 1}-
         {Math.min((data?.pagination.page || 1) * 20, data?.pagination.total || 0)} results
       </p>
