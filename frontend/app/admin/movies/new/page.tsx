@@ -8,7 +8,7 @@ import Link from 'next/link';
 const GENRES = [
   'Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
   'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror',
-  'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War', 'Western'
+  'Mystery', 'Romance', 'Sci-Fi', 'Science Fiction', 'Thriller', 'War', 'Western'
 ];
 
 const TYPES = ['movie', 'series', 'anime', 'kdrama', 'documentary', 'wwe'];
