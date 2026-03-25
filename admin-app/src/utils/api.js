@@ -138,7 +138,7 @@ export const api = {
     const result = await safeFetch(`${API_BASE_URL}/admin/search?q=${encodeURIComponent(query)}`, {
       headers: getHeaders(token),
     });
-    return { data: Array.isArray(result) ? result : [] };
+    return { data: result };
   },
 
   // ─── Site Links ───────────────────────────────────

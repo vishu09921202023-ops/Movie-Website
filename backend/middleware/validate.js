@@ -40,7 +40,7 @@ const movieSchema = z.object({
       z.object({
         quality: z.string(),
         size: z.string().optional().or(z.literal('')),
-        url: z.string().url(),
+        url: z.string().min(1),
         label: z.string().optional().or(z.literal('')),
       })
     )
@@ -51,7 +51,7 @@ const movieSchema = z.object({
   isFeatured: z.boolean().optional(),
   isAdult: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
-  screenshots: z.array(z.string().url()).optional(),
+  screenshots: z.array(z.string().min(1)).optional(),
   telegramUrl: z.string().url().optional().or(z.literal('')),
 });
 
