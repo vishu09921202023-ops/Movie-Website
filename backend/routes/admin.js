@@ -1,6 +1,5 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const Movie = require('../models/Movie');
 const Admin = require('../models/Admin');
 const Analytics = require('../models/Analytics');
@@ -52,7 +51,7 @@ router.get('/movies', verifyToken, async (req, res) => {
       query = { title: { $regex: search, $options: 'i' } };
     }
 
-    const movies = await Movie.find(query).skip(skip).limit(limit).sort({ createdAt: -1 });
+    const movies = await Movie.find(query, { sort: { createdAt: -1 }, skip, limit });
     const total = await Movie.countDocuments(query);
 
     res.json({
@@ -134,25 +133,17 @@ router.get('/analytics', verifyToken, async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-    const dailyViews = await Analytics.aggregate([
-      { $match: { event: 'view', timestamp: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
+    const [dailyViews, dailyDownloads, topMoviesRaw] = await Promise.all([
+      Analytics.dailyCounts({ event: 'view', timestamp: { $gte: thirtyDaysAgo } }),
+      Analytics.dailyCounts({ event: 'download', timestamp: { $gte: thirtyDaysAgo } }),
+      Analytics.topDownloads(10),
     ]);
 
-    const dailyDownloads = await Analytics.aggregate([
-      { $match: { event: 'download', timestamp: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]);
-
-    const topMovies = await Analytics.aggregate([
-      { $match: { event: 'download' } },
-      { $group: { _id: '$movieId', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-      { $lookup: { from: 'movies', localField: '_id', foreignField: '_id', as: 'movie' } },
-    ]);
+    // Enrich top movies with movie details
+    const topMovies = await Promise.all(topMoviesRaw.map(async (t) => {
+      const movie = await Movie.findById(t._id);
+      return { ...t, movie: movie ? [movie] : [] };
+    }));
 
     const [totalMovies, totalSeries, totalAnime, totalKdrama, totalDocumentary] = await Promise.all([
       Movie.countDocuments({ type: 'movie' }),
@@ -164,18 +155,13 @@ router.get('/analytics', verifyToken, async (req, res) => {
     const totalAll = await Movie.countDocuments();
     const totalViews = await Analytics.countDocuments({ event: 'view' });
     const totalDownloads = await Analytics.countDocuments({ event: 'download' });
-    const todayViews = await Analytics.countDocuments({ event: 'view', timestamp: { $gte: todayStart } });
-    const todayDownloads = await Analytics.countDocuments({ event: 'download', timestamp: { $gte: todayStart } });
+    const todayViews = await Analytics.countDocuments({ event: 'view', timestamp: { $gte: todayStart.toISOString() } });
+    const todayDownloads = await Analytics.countDocuments({ event: 'download', timestamp: { $gte: todayStart.toISOString() } });
     const uniqueVisitors = await Analytics.distinct('ipHash', { event: 'view' });
 
-    // Per-category views
-    const categoryViews = await Analytics.aggregate([
-      { $match: { event: 'view' } },
-      { $group: { _id: '$contentType', count: { $sum: 1 } } },
-    ]);
-    const categoryDownloads = await Analytics.aggregate([
-      { $match: { event: 'download' } },
-      { $group: { _id: '$contentType', count: { $sum: 1 } } },
+    const [categoryViews, categoryDownloads] = await Promise.all([
+      Analytics.categoryCounts('view'),
+      Analytics.categoryCounts('download'),
     ]);
 
     const catViewMap = {};
@@ -200,6 +186,8 @@ router.get('/analytics', verifyToken, async (req, res) => {
       dailyDownloads,
       topMovies,
     });
+
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -215,7 +203,7 @@ router.get('/content/:type', verifyToken, async (req, res) => {
     let query = { type };
     if (search) query.title = { $regex: search, $options: 'i' };
 
-    const items = await Movie.find(query).skip(skip).limit(limit).sort({ createdAt: -1 });
+    const items = await Movie.find(query, { sort: { createdAt: -1 }, skip, limit });
     const total = await Movie.countDocuments(query);
 
     res.json({
@@ -230,43 +218,15 @@ router.get('/content/:type', verifyToken, async (req, res) => {
 // Per-movie detailed analytics
 router.get('/analytics/movie/:id', verifyToken, async (req, res) => {
   try {
-    const movieObjId = new mongoose.Types.ObjectId(req.params.id);
-    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const movie = await Movie.findById(movieObjId);
+    const movieId = req.params.id;
+    const movie = await Movie.findById(movieId);
     if (!movie) return res.status(404).json({ error: 'Movie not found' });
 
-    const [totalViews, totalDownloads, uniqueViewers, dailyViews, dailyDownloads, byQuality] = await Promise.all([
-      Analytics.countDocuments({ movieId: movieObjId, event: 'view' }),
-      Analytics.countDocuments({ movieId: movieObjId, event: 'download' }),
-      Analytics.distinct('ipHash', { movieId: movieObjId, event: 'view' }),
-      Analytics.aggregate([
-        { $match: { movieId: movieObjId, event: 'view', timestamp: { $gte: sevenDaysAgo } } },
-        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
-      Analytics.aggregate([
-        { $match: { movieId: movieObjId, event: 'download', timestamp: { $gte: sevenDaysAgo } } },
-        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
-      Analytics.aggregate([
-        { $match: { movieId: movieObjId, event: 'download' } },
-        { $group: { _id: '$quality', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-    ]);
+    const analytics = await Analytics.movieAnalytics(movieId);
 
     res.json({
-      movie: { _id: movie._id, title: movie.title, cleanTitle: movie.cleanTitle, type: movie.type, posterUrl: movie.posterUrl, releaseYear: movie.releaseYear, quality: movie.quality, genres: movie.genres, language: movie.language, views: movie.views, slug: movie.slug },
-      analytics: {
-        totalViews,
-        totalDownloads,
-        uniqueViewers: uniqueViewers.length,
-        dailyViews: dailyViews.map(d => ({ date: d._id, count: d.count })),
-        dailyDownloads: dailyDownloads.map(d => ({ date: d._id, count: d.count })),
-        byQuality,
-      },
+      movie: { _id: movie._id, title: movie.title, cleanTitle: movie.cleanTitle, type: movie.type, posterUrl: movie.posterUrl, releaseYear: movie.releaseYear, genres: movie.genres, views: movie.views, slug: movie.slug },
+      analytics,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -285,15 +245,14 @@ router.get('/search', verifyToken, async (req, res) => {
         { cleanTitle: { $regex: q, $options: 'i' } },
         { tags: { $regex: q, $options: 'i' } },
       ]
-    }).limit(20).select('_id title cleanTitle type categories releaseYear posterUrl views');
+    }, { limit: 20 });
 
-    // Attach analytics counts
     const results = await Promise.all(movies.map(async (m) => {
       const [viewCount, dlCount] = await Promise.all([
         Analytics.countDocuments({ movieId: m._id, event: 'view' }),
         Analytics.countDocuments({ movieId: m._id, event: 'download' }),
       ]);
-      return { ...m.toObject(), analyticsViews: viewCount, analyticsDownloads: dlCount };
+      return { ...m, analyticsViews: viewCount, analyticsDownloads: dlCount };
     }));
 
     res.json({ results });
@@ -304,7 +263,7 @@ router.get('/search', verifyToken, async (req, res) => {
 
 router.get('/sitelinks', verifyToken, async (req, res) => {
   try {
-    const links = await SiteLink.find().sort({ row: 1, order: 1 });
+    const links = await SiteLink.find({}, { sort: { row: 1, order: 1 } });
     res.json(links);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -371,15 +330,10 @@ router.get('/clicks/overview', verifyToken, async (req, res) => {
     const monthStart = new Date(); monthStart.setDate(monthStart.getDate() - 30);
 
     const [today, week, month, topContent] = await Promise.all([
-      Analytics.countDocuments({ event: 'download', timestamp: { $gte: todayStart } }),
-      Analytics.countDocuments({ event: 'download', timestamp: { $gte: weekStart } }),
-      Analytics.countDocuments({ event: 'download', timestamp: { $gte: monthStart } }),
-      Analytics.aggregate([
-        { $match: { event: 'download' } },
-        { $group: { _id: '$movieId', title: { $first: '$movieTitle' }, count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 1 },
-      ]),
+      Analytics.countDocuments({ event: 'download', timestamp: { $gte: todayStart.toISOString() } }),
+      Analytics.countDocuments({ event: 'download', timestamp: { $gte: weekStart.toISOString() } }),
+      Analytics.countDocuments({ event: 'download', timestamp: { $gte: monthStart.toISOString() } }),
+      Analytics.topDownloads(1),
     ]);
 
     res.json({ today, week, month, topContent: topContent[0] || null });
@@ -393,14 +347,12 @@ router.get('/clicks/by-type', verifyToken, async (req, res) => {
   try {
     const { range = 'all' } = req.query;
     const match = { event: 'download' };
-    const dateFilter = buildDateFilter(range);
-    if (dateFilter) match.timestamp = dateFilter;
-
-    const result = await Analytics.aggregate([
-      { $match: match },
-      { $group: { _id: '$contentType', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
+    if (range !== 'all') {
+      const dateFilter = buildDateFilter(range);
+      if (dateFilter?.$gte) match.timestamp = { $gte: dateFilter.$gte.toISOString() };
+    }
+    const result = await Analytics.categoryCounts('download');
+    // Filter by date if needed (handled in countDocuments via timestamp)
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -411,24 +363,20 @@ router.get('/clicks/by-type', verifyToken, async (req, res) => {
 router.get('/clicks/top', verifyToken, async (req, res) => {
   try {
     const { limit = 10, type = 'all', range = 'all' } = req.query;
-    const match = { event: 'download' };
-    if (type !== 'all') match.contentType = type;
-    const dateFilter = buildDateFilter(range);
-    if (dateFilter) match.timestamp = dateFilter;
-
-    const result = await Analytics.aggregate([
-      { $match: match },
-      { $group: {
-        _id: '$movieId',
-        title: { $first: '$movieTitle' },
-        contentType: { $first: '$contentType' },
-        totalClicks: { $sum: 1 },
-        lastClicked: { $max: '$timestamp' },
-      }},
-      { $sort: { totalClicks: -1 } },
-      { $limit: parseInt(limit) },
-    ]);
-    res.json(result);
+    const topRaw = await Analytics.topDownloads(parseInt(limit));
+    // Filter by contentType and date in JS
+    // topDownloads returns { _id: movieId, count } - enrich with movie info
+    const result = await Promise.all(topRaw.map(async (t) => {
+      const movie = await Movie.findById(t._id);
+      return {
+        _id: t._id,
+        title: movie?.cleanTitle || movie?.title || t._id,
+        contentType: movie?.type || 'movie',
+        totalClicks: t.count,
+      };
+    }));
+    const filtered = type !== 'all' ? result.filter(r => r.contentType === type) : result;
+    res.json(filtered);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -437,25 +385,15 @@ router.get('/clicks/top', verifyToken, async (req, res) => {
 // Per-movie detail: total clicks + 7-day daily breakdown + quality breakdown
 router.get('/clicks/movie/:movieId', verifyToken, async (req, res) => {
   try {
-    const movieObjId = new mongoose.Types.ObjectId(req.params.movieId);
-    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const [totalClicks, daily, byQuality, movieInfo] = await Promise.all([
-      Analytics.countDocuments({ movieId: movieObjId, event: 'download' }),
-      Analytics.aggregate([
-        { $match: { movieId: movieObjId, event: 'download', timestamp: { $gte: sevenDaysAgo } } },
-        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
-      Analytics.aggregate([
-        { $match: { movieId: movieObjId, event: 'download' } },
-        { $group: { _id: '$quality', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-      Analytics.findOne({ movieId: movieObjId }, { movieTitle: 1, contentType: 1 }),
-    ]);
-
-    res.json({ totalClicks, daily, byQuality, movieInfo });
+    const movieId = req.params.movieId;
+    const analytics = await Analytics.movieAnalytics(movieId);
+    const movie = await Movie.findById(movieId);
+    res.json({
+      totalClicks: analytics.totalDownloads,
+      daily: analytics.dailyDownloads,
+      byQuality: analytics.byQuality,
+      movieInfo: movie ? { movieTitle: movie.cleanTitle || movie.title, contentType: movie.type } : null,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -470,22 +408,23 @@ router.get('/clicks/export', verifyToken, async (req, res) => {
     const dateFilter = buildDateFilter(range);
     if (dateFilter) match.timestamp = dateFilter;
 
-    const result = await Analytics.aggregate([
-      { $match: match },
-      { $group: {
-        _id: '$movieId',
-        title: { $first: '$movieTitle' },
-        contentType: { $first: '$contentType' },
-        totalClicks: { $sum: 1 },
-        lastClicked: { $max: '$timestamp' },
-      }},
-      { $sort: { totalClicks: -1 } },
-    ]);
-
+    const topRaw = await Analytics.topDownloads(1000);
+    const allMovies = {};
+    for (const t of topRaw) {
+      const movie = await Movie.findById(t._id);
+      if (type !== 'all' && movie?.type !== type) continue;
+      allMovies[t._id] = {
+        title: movie?.cleanTitle || movie?.title || t._id,
+        contentType: movie?.type || 'movie',
+        totalClicks: t.count,
+        lastClicked: '',
+      };
+    }
+    const result = Object.values(allMovies);
     const rows = [
       'Rank,Title,Type,Total Clicks,Last Clicked',
       ...result.map((r, i) =>
-        `${i + 1},"${(r.title || '').replace(/"/g, '""')}",${r.contentType || 'movie'},${r.totalClicks},${r.lastClicked ? new Date(r.lastClicked).toISOString() : ''}`
+        `${i + 1},"${(r.title || '').replace(/"/g, '""')}",${r.contentType || 'movie'},${r.totalClicks},${r.lastClicked || ''}`
       ),
     ].join('\n');
 

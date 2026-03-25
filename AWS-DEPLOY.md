@@ -1,168 +1,167 @@
 # 🚀 AWS Deployment Guide - VN Movies HD
-## (All-in-One: MongoDB + Backend + Frontend on single EC2)
+## (Pure AWS: DynamoDB + EC2 — No MongoDB!)
 
 ## Architecture
 ```
 Internet → EC2 (Nginx Port 80/443)
                 ├── Frontend Next.js  (Port 3000)
-                ├── Backend Node.js   (Port 5000)
-                └── MongoDB Community (Port 27017, local only)
+                └── Backend Node.js   (Port 5000)
+                         ↓
+              AWS DynamoDB (Managed, Serverless)
+              ├── vnmovies-movies
+              ├── vnmovies-admins
+              ├── vnmovies-analytics
+              └── vnmovies-sitelinks
 ```
-**No Atlas needed. Sab kuch ek hi EC2 pe!**
+**No MongoDB. No Atlas. Pure AWS!**
+- Database: **Amazon DynamoDB** (Serverless, auto-scaling, free tier 25 GB)
+- Compute: **Amazon EC2** (Ubuntu, Node.js + Nginx + PM2)
 
 ---
 
-## STEP 1 — Launch EC2 Instance on AWS
+## STEP 1 — Create DynamoDB Tables
 
-1. Go to **https://aws.amazon.com** → Sign in → EC2
-2. Click **Launch Instance**
-3. Settings:
+> DynamoDB ek serverless AWS database hai — koi server install nahi karna, koi port nahi, koi maintenance nahi.
+
+1. AWS Console → Search: **DynamoDB** → Click **Tables** → **Create table**
+2. **4 tables** banaao (ek ek kar ke):
+
+| Table Name | Partition Key | Type |
+|------------|--------------|------|
+| `vnmovies-movies` | `id` | String |
+| `vnmovies-admins` | `id` | String |
+| `vnmovies-analytics` | `pk` | String |
+| `vnmovies-sitelinks` | `id` | String |
+
+**Har table ke liye settings:**
+- Capacity mode: **On-demand** (Pay per request — saste mein)
+- Baaki sab default
+
+Ya AWS CLI se ek command mein sab bana lo (EC2 pe baad mein bhi kar sakte ho):
+```bash
+node backend/db/setup-tables.js
+```
+
+---
+
+## STEP 2 — Create IAM Role for EC2
+
+EC2 ko DynamoDB access chahiye. IAM Role se credentials manage hoti hain automatically.
+
+1. AWS Console → **IAM** → **Roles** → **Create role**
+2. Trusted entity: **AWS service** → **EC2** → Next
+3. Permissions: Search `AmazonDynamoDBFullAccess` → Select it → Next
+4. Role name: `vnmovies-ec2-role` → **Create role**
+
+Yeh role EC2 pe attach karoge Step 3 mein.
+
+---
+
+## STEP 3 — Launch EC2 Instance
+
+1. AWS Console → **EC2** → **Launch Instance**
+2. Settings:
    - **Name:** vnmovies-server
    - **OS:** Ubuntu 22.04 LTS (Free tier eligible)
-   - **Instance type:** t3.small (Recommended — $15/month) or t2.micro (Free 12 months — may be slow)
-   - **Storage:** 20 GB (default 8 GB kam padega MongoDB ke liye, 20 karo)
-   - **Key pair:** Create new → download `.pem` file → **SAVE IT SAFELY (yahi tumhara password hai)**
-   - **Security Group (Firewall):** Add these rules:
-     | Type       | Port | Source     |
-     |------------|------|------------|
-     | SSH        | 22   | My IP      |
-     | HTTP       | 80   | 0.0.0.0/0  |
-     | HTTPS      | 443  | 0.0.0.0/0  |
-4. Click **Launch Instance**
-5. Note your **Public IPv4 address** (e.g. `13.201.45.67`)
-
-> ⚠️ **MongoDB port 27017 ko Security Group mein ADD MAT KARO** — woh sirf localhost pe hona chahiye (security ke liye)
+   - **Instance type:** t2.micro (Free 12 months) ya t3.small (better performance, ~$15/month)
+   - **Storage:** 10 GB (DynamoDB ke liye extra storage nahi chahiye!)
+   - **Key pair:** Create new → download `.pem` file → **SAVE IT SAFELY**
+   - **Security Group:** Add these rules:
+     | Type  | Port | Source    |
+     |-------|------|-----------|
+     | SSH   | 22   | My IP     |
+     | HTTP  | 80   | 0.0.0.0/0 |
+     | HTTPS | 443  | 0.0.0.0/0 |
+3. **Advanced details** → **IAM instance profile** → Select `vnmovies-ec2-role`
+4. **Launch Instance**
+5. Note your **Public IPv4 address**
 
 ---
 
-## STEP 2 — Connect to EC2 (Windows se)
+## STEP 4 — Connect to EC2 (Windows se)
 
-PowerShell open karo jahan `.pem` file save hai:
 ```powershell
-# .pem file ko sahi permission do (Windows)
+# Windows PowerShell mein — jahan .pem file save hai
 icacls "your-key.pem" /inheritance:r /grant:r "%username%:R"
-
-# Connect karo
 ssh -i "your-key.pem" ubuntu@YOUR_EC2_IP
 ```
 
 ---
 
-## STEP 3 — Install Everything on EC2
+## STEP 5 — Install Node.js, Nginx, PM2 on EC2
 
-EC2 pe connect hone ke baad yeh sab run karo **ek ek karke**:
-
-### 3a. System Update
 ```bash
+# System update
 sudo apt update && sudo apt upgrade -y
-```
 
-### 3b. Node.js 20 Install
-```bash
+# Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 node -v   # v20.x.x dikhna chahiye
-```
 
-### 3c. MongoDB 7 Install
-```bash
-# MongoDB GPG key aur repo add karo
-curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-
-# Install karo
-sudo apt update
-sudo apt install -y mongodb-org
-
-# Start aur enable karo
-sudo systemctl start mongod
-sudo systemctl enable mongod
-
-# Check karo — "Active: active (running)" dikhna chahiye
-sudo systemctl status mongod
-```
-
-### 3d. Nginx + PM2 + Git
-```bash
+# Nginx + Git + PM2
 sudo apt install -y nginx git
 sudo npm install -g pm2
+
+# Verify
 nginx -v && pm2 -v && git --version
 ```
 
+> **Note:** MongoDB install NAHI karna — DynamoDB AWS pe directly hoga!
+
 ---
 
-## STEP 4 — Clone Project from GitHub
+## STEP 6 — Clone Project + Install Dependencies
 
 ```bash
 cd ~
 git clone https://github.com/vishu09921202023-ops/Movie-Website.git
 cd Movie-Website
+
+# Backend dependencies
+cd backend && npm install && cd ..
+
+# Frontend dependencies + build
+cd frontend && npm install && npm run build && cd ..
 ```
 
 ---
 
-## STEP 5 — Data Import: Local MongoDB → EC2 MongoDB
+## STEP 7 — Create DynamoDB Tables (from EC2)
 
-**Pehle local PC (Windows) pe** database export karo:
-```powershell
-# Windows PowerShell mein (local machine pe)
-cd C:\Users\nawar\Downloads\Movie-Website\backend
-mongodump --uri="mongodb://localhost:27017/vegamovies" --out=./backup
-```
-
-Agar `mongodump` command nahi mili toh MongoDB tools install karo:
-- Download: https://www.mongodb.com/try/download/database-tools
-- Install karke PATH mein add karo
-
-**Phir backup ko EC2 pe bhejo:**
-```powershell
-# Windows PowerShell mein (local machine pe)
-# backup folder EC2 pe copy karo
-scp -i "your-key.pem" -r C:\Users\nawar\Downloads\Movie-Website\backend\backup ubuntu@YOUR_EC2_IP:~/
-```
-
-**EC2 pe restore karo:**
 ```bash
-# EC2 pe (SSH session mein)
-mongorestore --uri="mongodb://localhost:27017/vegamovies" --dir=~/backup/vegamovies --db=vegamovies
-# Verify: sab data aa gaya?
-mongosh --eval "use vegamovies; db.movies.countDocuments()"
+cd ~/Movie-Website
+node backend/db/setup-tables.js
+# Output: ✓ Created: vnmovies-movies etc.
 ```
 
 ---
 
-## STEP 6 — Backend Setup
+## STEP 8 — Configure Environment Files
 
+### Backend `.env`:
 ```bash
-cd ~/Movie-Website/backend
-npm install
-
-# .env file banao
-nano .env
+nano ~/Movie-Website/backend/.env
 ```
-
-Yeh paste karo (Ctrl+X, Y, Enter se save karo):
+Paste karo:
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/vegamovies
-JWT_SECRET=vnmovies_production_secret_change_this_to_random_64char_string_abc123
+JWT_SECRET=CHANGE_THIS_TO_64_CHAR_RANDOM_STRING_abc123xyz
 CORS_ORIGIN=http://YOUR_EC2_IP
 NODE_ENV=production
+AWS_REGION=ap-south-1
+DYNAMO_TABLE_MOVIES=vnmovies-movies
+DYNAMO_TABLE_ADMINS=vnmovies-admins
+DYNAMO_TABLE_ANALYTICS=vnmovies-analytics
+DYNAMO_TABLE_SITELINKS=vnmovies-sitelinks
 ```
+> **`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` mat daalo** — EC2 IAM Role automatically credentials provide karta hai!
 
----
-
-## STEP 7 — Frontend Setup
-
+### Frontend `.env.local`:
 ```bash
-cd ~/Movie-Website/frontend
-npm install
-
-# .env.local file banao
-nano .env.local
+nano ~/Movie-Website/frontend/.env.local
 ```
-
-Yeh paste karo:
+Paste karo:
 ```env
 NEXT_PUBLIC_API_URL=http://YOUR_EC2_IP/api
 NEXT_PUBLIC_SITE_NAME=VN Movies HD
@@ -170,117 +169,114 @@ NEXT_PUBLIC_SITE_URL=http://YOUR_EC2_IP
 NODE_ENV=production
 ```
 
-```bash
-# Build karo (5-10 min lagega)
-npm run build
+---
+
+## STEP 9 — Migrate Data: Local MongoDB → DynamoDB
+
+**Pehle local PC (Windows) pe** yeh run karo:
+```powershell
+# Windows PowerShell mein
+cd C:\Users\nawar\Downloads\Movie-Website\backend
+
+# AWS credentials temporarily set karo (local PC pe sirf)
+$env:AWS_ACCESS_KEY_ID="your_key"
+$env:AWS_SECRET_ACCESS_KEY="your_secret"
+$env:AWS_REGION="ap-south-1"
+
+# Migrate karo
+npm install
+node db/migrate.js
 ```
+
+Migration script:
+- Local MongoDB se sabhi movies, admins, analytics, sitelinks padta hai
+- DynamoDB mein seedta hai
+- Output mein progress dikhta hai
+
+> Agar MongoDB local pe nahi hai ya fresh start chahte ho, admin panel se manually movies add karo ya seed script se.
 
 ---
 
-## STEP 8 — PM2 se Start Karo
+## STEP 10 — Start with PM2 + Configure Nginx
 
 ```bash
 cd ~/Movie-Website
-
-# Dono start karo
 pm2 start ecosystem.config.js
+pm2 list   # "online" dikhna chahiye
 
-# Status check karo
-pm2 list
-# "online" dikhna chahiye dono ke liye
-
-# Auto-restart on server reboot
+# Auto-start on reboot
 pm2 save
 pm2 startup
-# Jo command output mein aaye woh COPY karke run karo (sudo env PATH=... wali)
-```
+# Jo command output mein aaye woh run karo (sudo env PATH=... wali)
 
----
-
-## STEP 9 — Nginx Setup
-
-```bash
-sudo cp ~/Movie-Website/nginx.conf /etc/nginx/sites-available/vnmovies
+# Nginx setup
+sudo cp nginx.conf /etc/nginx/sites-available/vnmovies
 sudo ln -s /etc/nginx/sites-available/vnmovies /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t        # "syntax is ok" aana chahiye
+sudo nginx -t   # "syntax is ok"
 sudo systemctl restart nginx
 sudo systemctl enable nginx
 ```
 
 ---
 
-## STEP 10 — Test Karo! 🎉
+## STEP 11 — Create Admin User
 
-Browser mein open karo:
+```bash
+cd ~/Movie-Website/backend
+node -e "
+const Admin = require('./models/Admin');
+const a = new Admin({ username: 'admin', email: 'admin@vnmovies.com', passwordHash: 'YOUR_PASSWORD', role: 'admin' });
+a.save().then(() => { console.log('✅ Admin created!'); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); });
+"
 ```
-http://YOUR_EC2_IP              → Main website
-http://YOUR_EC2_IP/api/health   → API check
-```
-
-**Phone pe bhi khologe toh chalega!** Kisi ko bhi link share karo! 📱
 
 ---
 
-## STEP 11 (Optional) — Free Custom Domain + HTTPS
+## STEP 12 — Test! 🎉
 
-### Domain lao (~₹500/year):
-1. GoDaddy ya Namecheap se domain kharido
-2. DNS mein **A Record** add karo: `@` → `YOUR_EC2_IP`
-3. 10-30 min wait karo
-
-### Nginx config update karo:
-```bash
-sudo nano /etc/nginx/sites-available/vnmovies
-# server_name _ ;  ko  server_name yourdomain.com;  se replace karo
-sudo systemctl restart nginx
+```
+http://YOUR_EC2_IP        → Main website
+http://YOUR_EC2_IP/api/health → API check (should return {"status":"OK"})
 ```
 
-### Backend/Frontend env update karo:
+**Phone pe bhi kholega! Kisi ko bhi link share karo!** 📱
+
+---
+
+## STEP 13 (Optional) — Free Domain + HTTPS
+
 ```bash
-# Backend .env
-nano ~/Movie-Website/backend/.env
-# CORS_ORIGIN=https://yourdomain.com
+# Domain: GoDaddy/Namecheap se kharido, DNS A Record → YOUR_EC2_IP
 
-# Frontend .env.local
-nano ~/Movie-Website/frontend/.env.local
-# NEXT_PUBLIC_API_URL=https://yourdomain.com/api
-# NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+# Nginx config update:
+sudo nano /etc/nginx/sites-available/vnmovies
+# server_name _; → server_name yourdomain.com;
+sudo systemctl restart nginx
 
-# Rebuild frontend
-cd ~/Movie-Website/frontend && npm run build
+# Free SSL:
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+
+# Update env files with domain name, then:
 pm2 restart all
 ```
 
-### Free HTTPS/SSL:
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
-# Email dalo, agree karo — done!
-```
-
 ---
 
-## Website Update karna (Baad mein code changes ke liye)
+## Update Website (Later Code Changes)
 
-**Local machine pe pehle push karo:**
 ```powershell
+# Local PC pe — push to GitHub
 cd C:\Users\nawar\Downloads\Movie-Website
-git add -A
-git commit -m "update"
-git push
+git add -A; git commit -m "update"; git push
 ```
 
-**EC2 pe pull karo:**
 ```bash
-cd ~/Movie-Website
-git pull origin master
-
-# Agar backend changed:
-pm2 restart backend
-
-# Agar frontend changed:
-cd frontend && npm run build && pm2 restart frontend
+# EC2 pe — pull latest
+cd ~/Movie-Website && git pull origin master
+# If backend changed: pm2 restart backend
+# If frontend changed: cd frontend && npm run build && pm2 restart frontend
 ```
 
 ---
@@ -291,32 +287,31 @@ cd frontend && npm run build && pm2 restart frontend
 |---------|------|------|
 | EC2 t2.micro | Free Tier (12 months) | **FREE** |
 | EC2 t3.small (after free tier) | On-demand | ~$15/month |
-| MongoDB (on EC2) | Self-hosted | **FREE** |
+| **DynamoDB** | Free tier: 25 GB, 200M requests/month | **FREE** |
 | Nginx + PM2 | Open source | **FREE** |
 | Domain (optional) | Annual | ~₹500/year |
 
-**Pehle 12 mahine: BILKUL FREE** 🎉
+**Pehle 12 mahine: BILKUL FREE** 🎉  
+**DynamoDB: Hamesha Free (25 GB tak)** ✅
 
 ---
 
 ## Troubleshooting
 
 ```bash
-# Processes running hain?
-pm2 list
-
-# Logs dekho
+# PM2 logs
 pm2 logs backend --lines 50
 pm2 logs frontend --lines 50
 
-# MongoDB chal raha hai?
-sudo systemctl status mongod
-mongosh --eval "db.adminCommand('ping')"
+# DynamoDB connection test
+cd ~/Movie-Website
+node -e "const {ddb,scanAll}=require('./backend/db/dynamo'); scanAll('vnmovies-movies').then(r=>console.log('Movies in DB:',r.length)).catch(e=>console.error(e.message))"
 
-# Sab restart karo
-pm2 restart all
-sudo systemctl restart nginx
+# Backend manually test
+curl http://localhost:5000/api/health
+curl http://localhost:5000/api/movies
 
-# Ports check karo
-sudo ss -tlnp | grep -E "80|3000|5000|27017"
+# Restart everything
+pm2 restart all && sudo systemctl restart nginx
 ```
+
