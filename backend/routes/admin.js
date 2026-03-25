@@ -186,8 +186,6 @@ router.get('/analytics', verifyToken, async (req, res) => {
       dailyDownloads,
       topMovies,
     });
-
-    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
