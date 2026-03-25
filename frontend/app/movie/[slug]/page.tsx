@@ -58,7 +58,7 @@ export default function MovieDetail() {
   const handleDownload = async (link: any) => {
     try {
       setDownloading(link.quality);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       const res = await fetch(`${apiUrl}/movies/${movie!._id}/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,7 +309,7 @@ export default function MovieDetail() {
               <p className="text-cyan-300/70 text-sm">Get instant updates on latest releases</p>
             </div>
             <a
-              href={movie.telegramUrl || 'https://t.me/'}
+              href={movie.telegramUrl || 'https://t.me/vegamovies'}
               target="_blank"
               rel="noopener noreferrer"
               className="relative bg-cyan-500 hover:bg-cyan-400 text-white font-bold px-5 py-2 rounded-xl text-sm transition-all duration-300 shadow-lg shadow-cyan-900/30 active:scale-95"
