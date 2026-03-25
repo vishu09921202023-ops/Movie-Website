@@ -1,107 +1,99 @@
 # 🚀 AWS Deployment Guide - VN Movies HD
+## (All-in-One: MongoDB + Backend + Frontend on single EC2)
 
 ## Architecture
 ```
-Internet → EC2 (Nginx Port 80) → Frontend (Port 3000) + Backend (Port 5000)
-                                → MongoDB Atlas (Cloud DB)
+Internet → EC2 (Nginx Port 80/443)
+                ├── Frontend Next.js  (Port 3000)
+                ├── Backend Node.js   (Port 5000)
+                └── MongoDB Community (Port 27017, local only)
 ```
+**No Atlas needed. Sab kuch ek hi EC2 pe!**
 
 ---
 
-## STEP 1 — MongoDB Atlas Setup (Free Cloud Database)
-
-1. Go to **https://www.mongodb.com/atlas** → Sign up free
-2. Create a new **Cluster** → Choose FREE tier (M0)
-3. Choose region: **Mumbai (ap-south-1)** for best India speed
-4. Click **Connect** → **Connect your application**
-5. Copy the connection string — it looks like:
-   ```
-   mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/vegamovies
-   ```
-6. Under **Network Access** → Add IP Address → **Allow access from anywhere** (0.0.0.0/0)
-
-### Migrate your local data to Atlas:
-Run this on your local machine (replace YOUR_ATLAS_URI):
-```bash
-cd C:\Users\nawar\Downloads\Movie-Website\backend
-# Export from local MongoDB
-mongodump --uri="mongodb://localhost:27017/vegamovies" --out=./backup
-
-# Import to Atlas
-mongorestore --uri="YOUR_ATLAS_URI" --dir=./backup/vegamovies --db=vegamovies
-```
-
----
-
-## STEP 2 — Launch EC2 Instance on AWS
+## STEP 1 — Launch EC2 Instance on AWS
 
 1. Go to **https://aws.amazon.com** → Sign in → EC2
 2. Click **Launch Instance**
 3. Settings:
    - **Name:** vnmovies-server
    - **OS:** Ubuntu 22.04 LTS (Free tier eligible)
-   - **Instance type:** t2.micro (FREE for 12 months)
-   - **Key pair:** Create new → download `.pem` file → SAVE IT SAFELY
+   - **Instance type:** t3.small (Recommended — $15/month) or t2.micro (Free 12 months — may be slow)
+   - **Storage:** 20 GB (default 8 GB kam padega MongoDB ke liye, 20 karo)
+   - **Key pair:** Create new → download `.pem` file → **SAVE IT SAFELY (yahi tumhara password hai)**
    - **Security Group (Firewall):** Add these rules:
-     | Type | Port | Source |
-     |------|------|--------|
-     | SSH  | 22   | My IP  |
-     | HTTP | 80   | 0.0.0.0/0 |
-     | HTTPS| 443  | 0.0.0.0/0 |
-     | Custom TCP | 5000 | 0.0.0.0/0 |
+     | Type       | Port | Source     |
+     |------------|------|------------|
+     | SSH        | 22   | My IP      |
+     | HTTP       | 80   | 0.0.0.0/0  |
+     | HTTPS      | 443  | 0.0.0.0/0  |
 4. Click **Launch Instance**
 5. Note your **Public IPv4 address** (e.g. `13.201.45.67`)
 
+> ⚠️ **MongoDB port 27017 ko Security Group mein ADD MAT KARO** — woh sirf localhost pe hona chahiye (security ke liye)
+
 ---
 
-## STEP 3 — Connect to EC2
+## STEP 2 — Connect to EC2 (Windows se)
 
-On Windows, open PowerShell:
+PowerShell open karo jahan `.pem` file save hai:
 ```powershell
-# Move to where you saved the .pem file, then:
-ssh -i "your-key.pem" ubuntu@YOUR_EC2_IP
-
-# If permission error on .pem file:
+# .pem file ko sahi permission do (Windows)
 icacls "your-key.pem" /inheritance:r /grant:r "%username%:R"
+
+# Connect karo
+ssh -i "your-key.pem" ubuntu@YOUR_EC2_IP
 ```
 
 ---
 
-## STEP 4 — Install Dependencies on EC2
+## STEP 3 — Install Everything on EC2
 
-Run these commands on the EC2 server (after SSH):
+EC2 pe connect hone ke baad yeh sab run karo **ek ek karke**:
 
+### 3a. System Update
 ```bash
-# Update system
 sudo apt update && sudo apt upgrade -y
+```
 
-# Install Node.js 20
+### 3b. Node.js 20 Install
+```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
+node -v   # v20.x.x dikhna chahiye
+```
 
-# Verify Node installed
-node -v   # Should show v20.x.x
-npm -v
+### 3c. MongoDB 7 Install
+```bash
+# MongoDB GPG key aur repo add karo
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 
-# Install PM2 (keeps app running forever)
+# Install karo
+sudo apt update
+sudo apt install -y mongodb-org
+
+# Start aur enable karo
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Check karo — "Active: active (running)" dikhna chahiye
+sudo systemctl status mongod
+```
+
+### 3d. Nginx + PM2 + Git
+```bash
+sudo apt install -y nginx git
 sudo npm install -g pm2
-
-# Install Nginx (web server)
-sudo apt install -y nginx
-
-# Install Git
-sudo apt install -y git
-
-# Verify all
 nginx -v && pm2 -v && git --version
 ```
 
 ---
 
-## STEP 5 — Clone Your Project from GitHub
+## STEP 4 — Clone Project from GitHub
 
 ```bash
-# On EC2 server:
 cd ~
 git clone https://github.com/vishu09921202023-ops/Movie-Website.git
 cd Movie-Website
@@ -109,42 +101,68 @@ cd Movie-Website
 
 ---
 
-## STEP 6 — Setup Backend
+## STEP 5 — Data Import: Local MongoDB → EC2 MongoDB
+
+**Pehle local PC (Windows) pe** database export karo:
+```powershell
+# Windows PowerShell mein (local machine pe)
+cd C:\Users\nawar\Downloads\Movie-Website\backend
+mongodump --uri="mongodb://localhost:27017/vegamovies" --out=./backup
+```
+
+Agar `mongodump` command nahi mili toh MongoDB tools install karo:
+- Download: https://www.mongodb.com/try/download/database-tools
+- Install karke PATH mein add karo
+
+**Phir backup ko EC2 pe bhejo:**
+```powershell
+# Windows PowerShell mein (local machine pe)
+# backup folder EC2 pe copy karo
+scp -i "your-key.pem" -r C:\Users\nawar\Downloads\Movie-Website\backend\backup ubuntu@YOUR_EC2_IP:~/
+```
+
+**EC2 pe restore karo:**
+```bash
+# EC2 pe (SSH session mein)
+mongorestore --uri="mongodb://localhost:27017/vegamovies" --dir=~/backup/vegamovies --db=vegamovies
+# Verify: sab data aa gaya?
+mongosh --eval "use vegamovies; db.movies.countDocuments()"
+```
+
+---
+
+## STEP 6 — Backend Setup
 
 ```bash
 cd ~/Movie-Website/backend
-
-# Install dependencies
 npm install
 
-# Create environment file
+# .env file banao
 nano .env
 ```
 
-Paste this into the file (press Ctrl+X, Y, Enter to save):
+Yeh paste karo (Ctrl+X, Y, Enter se save karo):
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/vegamovies
-JWT_SECRET=vegamovies_super_secret_jwt_key_2024_change_in_production_64chars_long_xyz
-CORS_ORIGIN=http://YOUR_EC2_IP,https://yourdomain.com
+MONGODB_URI=mongodb://localhost:27017/vegamovies
+JWT_SECRET=vnmovies_production_secret_change_this_to_random_64char_string_abc123
+CORS_ORIGIN=http://YOUR_EC2_IP
 NODE_ENV=production
 ```
 
 ---
 
-## STEP 7 — Setup Frontend
+## STEP 7 — Frontend Setup
 
 ```bash
 cd ~/Movie-Website/frontend
-
-# Install dependencies
 npm install
 
-# Create environment file
+# .env.local file banao
 nano .env.local
 ```
 
-Paste this:
+Yeh paste karo:
 ```env
 NEXT_PUBLIC_API_URL=http://YOUR_EC2_IP/api
 NEXT_PUBLIC_SITE_NAME=VN Movies HD
@@ -153,107 +171,115 @@ NODE_ENV=production
 ```
 
 ```bash
-# Build the frontend
+# Build karo (5-10 min lagega)
 npm run build
 ```
 
 ---
 
-## STEP 8 — Setup PM2 (Auto-restart processes)
+## STEP 8 — PM2 se Start Karo
 
 ```bash
 cd ~/Movie-Website
 
-# Copy the ecosystem config
-cp ecosystem.config.js ~/
-
-cd ~
-
-# Start both backend and frontend
+# Dono start karo
 pm2 start ecosystem.config.js
 
-# Save so they restart on server reboot
+# Status check karo
+pm2 list
+# "online" dikhna chahiye dono ke liye
+
+# Auto-restart on server reboot
 pm2 save
 pm2 startup
-# Run the command it outputs (starts with: sudo env PATH=...)
-```
-
-Check everything is running:
-```bash
-pm2 list
-pm2 logs
+# Jo command output mein aaye woh COPY karke run karo (sudo env PATH=... wali)
 ```
 
 ---
 
-## STEP 9 — Setup Nginx (Reverse Proxy)
+## STEP 9 — Nginx Setup
 
 ```bash
-# Copy Nginx config
 sudo cp ~/Movie-Website/nginx.conf /etc/nginx/sites-available/vnmovies
 sudo ln -s /etc/nginx/sites-available/vnmovies /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-
-# Test config
-sudo nginx -t
-
-# Restart Nginx
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t        # "syntax is ok" aana chahiye
 sudo systemctl restart nginx
 sudo systemctl enable nginx
 ```
 
 ---
 
-## STEP 10 — Test Your Website
+## STEP 10 — Test Karo! 🎉
 
-Open in browser:
+Browser mein open karo:
 ```
-http://YOUR_EC2_IP        → Website (phone pe bhi open hoga)
-http://YOUR_EC2_IP/api/health → API test
+http://YOUR_EC2_IP              → Main website
+http://YOUR_EC2_IP/api/health   → API check
 ```
 
-Share this IP with anyone and they can access the site! 🎉
+**Phone pe bhi khologe toh chalega!** Kisi ko bhi link share karo! 📱
 
 ---
 
-## STEP 11 (Optional) — Custom Domain Name
+## STEP 11 (Optional) — Free Custom Domain + HTTPS
 
-1. Buy a domain from **GoDaddy/Namecheap** (~₹500/year)
-2. In DNS settings → Add **A Record**:
-   - Name: `@`
-   - Value: `YOUR_EC2_IP`
-3. Wait 10-30 minutes for DNS to propagate
-4. Update `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` to use your domain
-5. Rebuild frontend: `cd ~/Movie-Website/frontend && npm run build && pm2 restart frontend`
+### Domain lao (~₹500/year):
+1. GoDaddy ya Namecheap se domain kharido
+2. DNS mein **A Record** add karo: `@` → `YOUR_EC2_IP`
+3. 10-30 min wait karo
 
----
-
-## STEP 12 (Optional) — Free HTTPS/SSL
-
+### Nginx config update karo:
 ```bash
-# Install Certbot
+sudo nano /etc/nginx/sites-available/vnmovies
+# server_name _ ;  ko  server_name yourdomain.com;  se replace karo
+sudo systemctl restart nginx
+```
+
+### Backend/Frontend env update karo:
+```bash
+# Backend .env
+nano ~/Movie-Website/backend/.env
+# CORS_ORIGIN=https://yourdomain.com
+
+# Frontend .env.local
+nano ~/Movie-Website/frontend/.env.local
+# NEXT_PUBLIC_API_URL=https://yourdomain.com/api
+# NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+
+# Rebuild frontend
+cd ~/Movie-Website/frontend && npm run build
+pm2 restart all
+```
+
+### Free HTTPS/SSL:
+```bash
 sudo apt install -y certbot python3-certbot-nginx
-
-# Get SSL certificate (replace with your domain)
 sudo certbot --nginx -d yourdomain.com
-
-# Auto-renew
-sudo certbot renew --dry-run
+# Email dalo, agree karo — done!
 ```
 
 ---
 
-## Updating Website Later (After Code Changes)
+## Website Update karna (Baad mein code changes ke liye)
 
+**Local machine pe pehle push karo:**
+```powershell
+cd C:\Users\nawar\Downloads\Movie-Website
+git add -A
+git commit -m "update"
+git push
+```
+
+**EC2 pe pull karo:**
 ```bash
-# SSH into EC2, then:
 cd ~/Movie-Website
 git pull origin master
 
-# If backend changed:
+# Agar backend changed:
 pm2 restart backend
 
-# If frontend changed:
+# Agar frontend changed:
 cd frontend && npm run build && pm2 restart frontend
 ```
 
@@ -263,31 +289,34 @@ cd frontend && npm run build && pm2 restart frontend
 
 | Service | Plan | Cost |
 |---------|------|------|
-| EC2 t2.micro | Free Tier (12 months) | FREE |
-| MongoDB Atlas M0 | Free forever | FREE |
-| EC2 after 12 months | On-demand | ~$8-10/month |
-| Domain name (optional) | Annual | ~₹500-1000/year |
+| EC2 t2.micro | Free Tier (12 months) | **FREE** |
+| EC2 t3.small (after free tier) | On-demand | ~$15/month |
+| MongoDB (on EC2) | Self-hosted | **FREE** |
+| Nginx + PM2 | Open source | **FREE** |
+| Domain (optional) | Annual | ~₹500/year |
 
-**Total for first year: FREE** 🎉
+**Pehle 12 mahine: BILKUL FREE** 🎉
 
 ---
 
 ## Troubleshooting
 
 ```bash
-# Check if processes are running
+# Processes running hain?
 pm2 list
 
-# View logs
-pm2 logs backend
-pm2 logs frontend
+# Logs dekho
+pm2 logs backend --lines 50
+pm2 logs frontend --lines 50
 
-# Restart everything
+# MongoDB chal raha hai?
+sudo systemctl status mongod
+mongosh --eval "db.adminCommand('ping')"
+
+# Sab restart karo
 pm2 restart all
+sudo systemctl restart nginx
 
-# Check Nginx errors
-sudo journalctl -u nginx -n 50
-
-# Check ports
-sudo netstat -tlnp
+# Ports check karo
+sudo ss -tlnp | grep -E "80|3000|5000|27017"
 ```
