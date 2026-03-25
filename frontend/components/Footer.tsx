@@ -22,20 +22,27 @@ export default function Footer() {
   return (
     <footer className="relative mt-20">
       {/* Top gradient line */}
-      <div className="h-px bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+      <div className="h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+      <div className="h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent mt-px" />
 
-      <div className="bg-[#0a0a0f]/80 backdrop-blur-sm">
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-12">
+      <div className="bg-[#0a0a0f]/90 backdrop-blur-xl relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 left-1/4 w-96 h-32 bg-red-600/5 rounded-full blur-3xl" />
+        
+        <div className="relative max-w-[1400px] mx-auto px-4 lg:px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {/* Brand */}
             <div className="space-y-4">
-              <Link href="/" className="inline-flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+              <Link href="/" className="inline-flex items-center gap-2.5 group">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-900/30 group-hover:shadow-red-600/40 transition-all duration-300">
                   <span className="text-white font-black text-xs">VN</span>
                 </div>
-                <span className="text-lg font-black">
-                  <span className="text-red-500">VN</span> Movies <span className="text-red-500">HD</span>
-                </span>
+                <div>
+                  <span className="text-lg font-black">
+                    <span className="text-red-500">VN</span> Movies <span className="text-red-500">HD</span>
+                  </span>
+                  <p className="text-[9px] text-gray-600 tracking-[0.15em] uppercase">Premium Movies Hub</p>
+                </div>
               </Link>
               <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
                 Your ultimate destination for Bollywood, Hollywood, Anime, and K-Drama movies in HD quality.

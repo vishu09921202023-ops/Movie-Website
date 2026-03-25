@@ -15,6 +15,9 @@ const movieSchema = z.object({
   type: z
     .enum(['movie', 'series', 'anime', 'kdrama', 'documentary', 'wwe'])
     .optional(),
+  categories: z
+    .array(z.enum(['movie', 'series', 'anime', 'kdrama', 'documentary', 'wwe']))
+    .optional(),
   ottPlatform: z
     .enum([
       'netflix',

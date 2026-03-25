@@ -10,20 +10,20 @@ import { Movie, SiteLink } from '@/lib/types';
 const SectionHeader = ({ title, icon, href }: { title: string; icon: React.ReactNode; href: string }) => (
   <div className="flex items-center justify-between mb-6">
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600/20 to-red-800/10 border border-red-500/20 flex items-center justify-center text-red-400">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600/20 to-red-800/10 border border-red-500/20 flex items-center justify-center text-red-400 shadow-lg shadow-red-900/10">
         {icon}
       </div>
       <div>
         <h2 className="text-xl lg:text-2xl font-bold text-white">{title}</h2>
-        <div className="h-0.5 w-12 bg-gradient-to-r from-red-500 to-transparent mt-1 rounded-full" />
+        <div className="h-0.5 w-16 bg-gradient-to-r from-red-500 via-red-500/50 to-transparent mt-1 rounded-full" />
       </div>
     </div>
     <Link
       href={href}
-      className="text-sm font-medium text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1 group"
+      className="text-sm font-medium text-gray-400 hover:text-red-400 transition-all duration-300 flex items-center gap-1 group px-4 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10"
     >
       View All
-      <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+      <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
     </Link>
   </div>
 );
@@ -110,22 +110,48 @@ export default function Home() {
   return (
     <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-8">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl mb-10 bg-gradient-to-br from-red-950/40 via-[#0a0a14] to-[#0a0a14] border border-white/5 animate-fade-in">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(229,9,20,0.15),_transparent_60%)]" />
-        <div className="relative px-6 lg:px-10 py-10 lg:py-14">
-          <h1 className="text-3xl lg:text-5xl font-black mb-3">
+      <div className="relative overflow-hidden rounded-2xl mb-10 border border-white/5 animate-fade-in">
+        {/* Multi-layer gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-red-950/50 via-[#0a0a14] to-purple-950/20" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(229,9,20,0.2),_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(147,51,234,0.1),_transparent_50%)]" />
+        {/* Animated gradient border */}
+        <div className="absolute inset-0 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(229,9,20,0.3), transparent, rgba(147,51,234,0.2))', mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', maskComposite: 'xor', WebkitMaskComposite: 'xor', padding: '1px', borderRadius: 'inherit' }} />
+        <div className="relative px-6 lg:px-10 py-12 lg:py-16">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-1 w-8 rounded-full bg-red-500" />
+            <span className="text-red-400 text-xs font-semibold uppercase tracking-[0.2em]">Premium Movie Hub</span>
+          </div>
+          <h1 className="text-4xl lg:text-6xl font-black mb-4 leading-tight">
             <span className="gradient-text">VN Movies HD</span>
           </h1>
-          <p className="text-gray-400 text-sm lg:text-base max-w-xl leading-relaxed mb-6">
+          <p className="text-gray-400 text-sm lg:text-base max-w-xl leading-relaxed mb-8">
             Your premium destination for Bollywood, Hollywood, Anime &amp; K-Drama. Stream and download in 4K, 1080p, and 720p quality.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/browse" className="btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold">
+            <Link href="/browse" className="btn-primary px-8 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               Browse All Movies
             </Link>
-            <Link href="/trending" className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-white/10 text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-300">
+            <Link href="/trending" className="px-8 py-3 rounded-xl text-sm font-bold border border-white/10 text-gray-300 hover:bg-white/5 hover:text-white hover:border-white/20 transition-all duration-300 flex items-center gap-2 backdrop-blur-sm">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" /></svg>
               Trending Now
             </Link>
+          </div>
+          {/* Stats row */}
+          <div className="flex flex-wrap gap-6 mt-8 pt-6 border-t border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-gray-500 text-xs font-medium">4K Ultra HD</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" style={{ animationDelay: '0.5s' }} />
+              <span className="text-gray-500 text-xs font-medium">Multi Audio</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay: '1s' }} />
+              <span className="text-gray-500 text-xs font-medium">Latest Releases</span>
+            </div>
           </div>
         </div>
       </div>

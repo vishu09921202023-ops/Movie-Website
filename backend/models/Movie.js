@@ -39,6 +39,11 @@ const movieSchema = new mongoose.Schema(
       default: 'movie',
       index: true,
     },
+    categories: [{
+      type: String,
+      enum: ['movie', 'series', 'anime', 'kdrama', 'documentary', 'wwe'],
+      index: true,
+    }],
     ottPlatform: {
       type: String,
       enum: [

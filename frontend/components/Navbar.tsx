@@ -114,12 +114,12 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? 'glass shadow-lg shadow-black/30 border-b border-white/5' : 'bg-transparent border-b border-white/5'}`}>
+    <nav className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? 'glass shadow-2xl shadow-black/40 border-b border-white/5' : 'bg-[#030712]/80 backdrop-blur-md border-b border-white/5'}`}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-900/40 group-hover:shadow-red-600/50 transition-shadow duration-300">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-900/40 group-hover:shadow-red-600/50 transition-all duration-300 group-hover:scale-105">
               <span className="text-white font-black text-sm">VN</span>
             </div>
             <div className="flex flex-col leading-none">
@@ -128,6 +128,7 @@ export default function Navbar() {
                 <span className="text-white"> Movies</span>
                 <span className="text-red-500"> HD</span>
               </span>
+              <span className="text-[9px] text-gray-500 tracking-[0.15em] uppercase font-medium">Premium Movies Hub</span>
             </div>
           </Link>
 

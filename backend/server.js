@@ -15,8 +15,8 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (server-to-server) or any localhost/127.0.0.1 origin in dev
-      if (!origin || origin.match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) {
+      // Allow requests with no origin (mobile apps, server-to-server) or any local network origin in dev
+      if (!origin || origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/)) {
         return callback(null, true);
       }
       const allowed = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim());

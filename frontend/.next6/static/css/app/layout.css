@@ -500,6 +500,9 @@ video {
 .pointer-events-auto {
   pointer-events: auto;
 }
+.fixed {
+  position: fixed;
+}
 .absolute {
   position: absolute;
 }
@@ -521,8 +524,14 @@ video {
 .left-3 {
   left: 0.75rem;
 }
+.left-5 {
+  left: 1.25rem;
+}
 .right-0 {
   right: 0px;
+}
+.right-5 {
+  right: 1.25rem;
 }
 .top-0 {
   top: 0px;
@@ -532,6 +541,9 @@ video {
 }
 .top-full {
   top: 100%;
+}
+.z-0 {
+  z-index: 0;
 }
 .z-10 {
   z-index: 10;
@@ -1043,6 +1055,11 @@ video {
   --tw-gradient-to: rgb(3 7 18 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
+.from-black\/20 {
+  --tw-gradient-from: rgb(0 0 0 / 0.2) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(0 0 0 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
 .from-black\/90 {
   --tw-gradient-from: rgb(0 0 0 / 0.9) var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(0 0 0 / 0) var(--tw-gradient-to-position);
@@ -1232,6 +1249,12 @@ video {
 .pl-10 {
   padding-left: 2.5rem;
 }
+.pl-14 {
+  padding-left: 3.5rem;
+}
+.pr-12 {
+  padding-right: 3rem;
+}
 .pr-4 {
   padding-right: 1rem;
 }
@@ -1251,6 +1274,10 @@ video {
 .text-3xl {
   font-size: 1.875rem;
   line-height: 2.25rem;
+}
+.text-5xl {
+  font-size: 3rem;
+  line-height: 1;
 }
 .text-base {
   font-size: 1rem;
@@ -1837,6 +1864,138 @@ body {
 }
 .nav-link:hover::after {
   width: 100%;
+}
+
+/* ─── Movie-Themed Animated Background ─── */
+@keyframes filmFloat {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.15; }
+  90% { opacity: 0.15; }
+  100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes beamSweep {
+  0% { transform: rotate(-15deg) translateX(-100%); opacity: 0; }
+  20% { opacity: 0.03; }
+  80% { opacity: 0.03; }
+  100% { transform: rotate(15deg) translateX(100%); opacity: 0; }
+}
+
+@keyframes spotlightPulse {
+  0%, 100% { opacity: 0.03; transform: scale(1); }
+  50% { opacity: 0.06; transform: scale(1.1); }
+}
+
+@keyframes filmStripScroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 480px; }
+}
+
+/* Film reel particles - floating film frame icons */
+.film-particle {
+  position: absolute;
+  width: 24px;
+  height: 18px;
+  border: 2px solid rgba(229, 9, 20, 0.12);
+  border-radius: 3px;
+  animation: filmFloat linear infinite;
+}
+.film-particle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid rgba(229, 9, 20, 0.15);
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+}
+.film-particle-1 { left: 5%; animation-duration: 25s; animation-delay: 0s; width: 20px; height: 15px; }
+.film-particle-2 { left: 25%; animation-duration: 30s; animation-delay: 5s; width: 28px; height: 20px; }
+.film-particle-3 { left: 55%; animation-duration: 22s; animation-delay: 8s; }
+.film-particle-4 { left: 75%; animation-duration: 28s; animation-delay: 3s; width: 16px; height: 12px; }
+.film-particle-5 { left: 90%; animation-duration: 35s; animation-delay: 12s; width: 22px; height: 16px; }
+
+/* Cinema light beams */
+.cinema-beam {
+  position: absolute;
+  top: -50%;
+  width: 200px;
+  height: 200%;
+  background: linear-gradient(180deg, rgba(229, 9, 20, 0.02), transparent 40%, transparent 60%, rgba(229, 9, 20, 0.02));
+  animation: beamSweep ease-in-out infinite;
+}
+.cinema-beam-1 { left: 20%; animation-duration: 20s; animation-delay: 0s; }
+.cinema-beam-2 { left: 60%; animation-duration: 25s; animation-delay: 10s; width: 150px; }
+
+/* Film strip side decorations */
+.film-strip-left,
+.film-strip-right {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 100%;
+  background-repeat: repeat-y;
+  background-size: 12px 24px;
+  background-image:
+    linear-gradient(to bottom,
+      transparent 0px, transparent 4px,
+      rgba(229, 9, 20, 0.04) 4px, rgba(229, 9, 20, 0.04) 20px,
+      transparent 20px, transparent 24px
+    );
+  animation: filmStripScroll 12s linear infinite;
+  opacity: 0.6;
+}
+.film-strip-left { left: 0; }
+.film-strip-right { right: 0; }
+
+/* Spotlight effect */
+.spotlight {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(ellipse, rgba(229, 9, 20, 0.04), transparent 70%);
+  animation: spotlightPulse 8s ease-in-out infinite;
+}
+
+/* ─── Responsive Improvements ─── */
+@media (max-width: 640px) {
+  .film-strip-left, .film-strip-right { display: none; }
+  .cinema-beam { width: 100px; }
+  .spotlight { width: 300px; height: 300px; }
+  .film-particle { width: 16px; height: 12px; }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .spotlight { width: 450px; height: 450px; }
+}
+
+/* Movie card responsive grid */
+@media (max-width: 480px) {
+  .movie-card:hover {
+    transform: translateY(-4px) scale(1.01);
+  }
+  .quality-badge {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+    font-size: 10px;
+  }
+  .card-meta {
+    padding: 0.5rem;
+  }
+  .card-title {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
 }
 .hover\:translate-x-1:hover {
   --tw-translate-x: 0.25rem;

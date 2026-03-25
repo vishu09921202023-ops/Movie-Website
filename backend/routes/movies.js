@@ -9,7 +9,9 @@ const crypto = require('crypto');
 const router = express.Router();
 
 const hashIP = (ip) => {
-  return crypto.createHash('sha256').update(ip).digest('hex');
+  // Normalize IPv6/IPv4 mapped addresses to consistent format
+  const normalized = (ip || '127.0.0.1').replace(/^::ffff:/, '').replace(/^::1$/, '127.0.0.1');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 };
 
 router.get('/', async (req, res) => {
@@ -17,14 +19,18 @@ router.get('/', async (req, res) => {
     const { type, genre, year, quality, ott, search, page = 1, limit = 20, sort = 'latest' } = req.query;
 
     let query = {};
-    if (type) query.type = type;
+    if (type) query.$or = [{ type }, { categories: type }];
     if (ott) query.ottPlatform = ott;
     if (year) query.releaseYear = parseInt(year);
     if (genre) query.genres = genre;
     if (quality) query.qualities = quality;
 
     if (search) {
-      query.$text = { $search: search };
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { cleanTitle: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } },
+      ];
     }
 
     let sortOption = { postedAt: -1 };
@@ -103,21 +109,40 @@ router.get('/:slug', async (req, res) => {
 
 router.post('/:id/view', async (req, res) => {
   try {
-    const movie = await Movie.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { views: 1 } },
-      { new: true }
+    const ipHash = hashIP(req.ip);
+    const movieId = req.params.id;
+
+    // Atomic upsert: only creates if this IP hasn't viewed this movie before
+    const result = await Analytics.findOneAndUpdate(
+      { movieId, event: 'view', ipHash },
+      {
+        $setOnInsert: {
+          movieId,
+          event: 'view',
+          ipHash,
+          userAgent: req.headers['user-agent'],
+          timestamp: new Date(),
+        }
+      },
+      { upsert: true, new: true, rawResult: true }
     );
 
-    const ipHash = hashIP(req.ip);
-    await Analytics.create({
-      movieId: req.params.id,
-      event: 'view',
-      ipHash,
-      userAgent: req.headers['user-agent'],
-    });
-
-    res.json({ views: movie.views });
+    // Only increment view count if this was a NEW document (not already existing)
+    if (result.lastErrorObject?.updatedExisting === false) {
+      const movie = await Movie.findByIdAndUpdate(
+        movieId,
+        { $inc: { views: 1 } },
+        { new: true }
+      );
+      await Analytics.findByIdAndUpdate(result.value._id, {
+        movieTitle: movie?.cleanTitle || movie?.title || '',
+        contentType: movie?.type || 'movie',
+      });
+      res.json({ views: movie?.views || 0, unique: true });
+    } else {
+      const movie = await Movie.findById(movieId);
+      res.json({ views: movie?.views || 0, unique: false });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

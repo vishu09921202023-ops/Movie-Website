@@ -1,12 +1,50 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert,
+  View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Animated, Easing,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../utils/api';
 import { colors } from '../utils/theme';
+import AnimatedBackground from '../components/AnimatedBackground';
 
 const PRESET_COLORS = ['#e50914', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+
+function AnimatedLinkCard({ item, index, onDelete }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, { toValue: 1, delay: index * 60, tension: 80, friction: 12, useNativeDriver: true }).start();
+  }, []);
+
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, tension: 200, friction: 10, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, tension: 200, friction: 10, useNativeDriver: true }).start();
+
+  return (
+    <Animated.View style={{
+      opacity: anim,
+      transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }, { scale: scaleAnim }],
+    }}>
+      <TouchableOpacity activeOpacity={0.85} onPressIn={onPressIn} onPressOut={onPressOut}>
+        <View style={styles.linkCard}>
+          <View style={[styles.colorBar, { backgroundColor: item.color }]} />
+          <View style={styles.linkInfo}>
+            <Text style={styles.linkLabel}>{item.label}</Text>
+            <Text style={styles.linkUrl} numberOfLines={1}>{item.url}</Text>
+            <View style={styles.linkMetaRow}>
+              <Text style={styles.linkMeta}>Row {item.row}</Text>
+              <View style={styles.metaDot} />
+              <Text style={styles.linkMeta}>Order {item.order}</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.delBtn} onPress={() => onDelete(item)}>
+            <Text style={styles.delBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function SiteLinksScreen({ route }) {
   const token = route.params?.token;
@@ -14,6 +52,25 @@ export default function SiteLinksScreen({ route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ label: '', url: '', color: '#e50914', row: 1, order: 0 });
+
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const btnGlow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(headerAnim, { toValue: 1, tension: 60, friction: 10, useNativeDriver: true }).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(btnGlow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(btnGlow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ])).start();
+  }, []);
+
+  useEffect(() => {
+    if (showForm) {
+      formAnim.setValue(0);
+      Animated.spring(formAnim, { toValue: 1, tension: 80, friction: 12, useNativeDriver: true }).start();
+    }
+  }, [showForm]);
 
   const fetchLinks = useCallback(async () => {
     try {
@@ -69,31 +126,38 @@ export default function SiteLinksScreen({ route }) {
     ]);
   };
 
-  const renderLink = ({ item }) => (
-    <View style={styles.linkCard}>
-      <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-      <View style={styles.linkInfo}>
-        <Text style={styles.linkLabel}>{item.label}</Text>
-        <Text style={styles.linkUrl} numberOfLines={1}>{item.url}</Text>
-        <Text style={styles.linkMeta}>Row {item.row} • Order {item.order}</Text>
-      </View>
-      <TouchableOpacity style={styles.delBtn} onPress={() => handleDelete(item)}>
-        <Text style={styles.delBtnText}>×</Text>
-      </TouchableOpacity>
-    </View>
+  const renderLink = ({ item, index }) => (
+    <AnimatedLinkCard item={item} index={index} onDelete={handleDelete} />
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Site Links</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(!showForm)}>
-          <Text style={styles.addBtnText}>{showForm ? 'Cancel' : '+ Add'}</Text>
-        </TouchableOpacity>
-      </View>
+      <AnimatedBackground intensity="minimal" />
+
+      <Animated.View style={[styles.header, {
+        opacity: headerAnim,
+        transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }],
+      }]}>
+        <View>
+          <Text style={styles.heading}>🔗 Site Links</Text>
+          <Text style={styles.subHeading}>{links.length} link{links.length !== 1 ? 's' : ''} configured</Text>
+        </View>
+        <Animated.View style={{ opacity: btnGlow.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }}>
+          <TouchableOpacity style={[styles.addBtn, showForm && styles.addBtnCancel]} onPress={() => setShowForm(!showForm)}>
+            <Text style={styles.addBtnText}>{showForm ? '✕ Cancel' : '+ Add Link'}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
 
       {showForm && (
-        <View style={styles.formCard}>
+        <Animated.View style={[styles.formCard, {
+          opacity: formAnim,
+          transform: [{ translateY: formAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) },
+                       { scale: formAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }],
+        }]}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>✨ New Link</Text>
+          </View>
           <TextInput
             style={styles.input}
             value={form.label}
@@ -108,6 +172,7 @@ export default function SiteLinksScreen({ route }) {
             placeholder="URL (e.g. /browse or https://...)"
             placeholderTextColor={colors.textMuted}
           />
+          <Text style={styles.colorLabel}>🎨 Color</Text>
           <View style={styles.colorRow}>
             {PRESET_COLORS.map((c) => (
               <TouchableOpacity
@@ -118,27 +183,33 @@ export default function SiteLinksScreen({ route }) {
             ))}
           </View>
           <View style={styles.rowFields}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={form.row.toString()}
-              onChangeText={(v) => setForm({ ...form, row: v })}
-              placeholder="Row"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={form.order.toString()}
-              onChangeText={(v) => setForm({ ...form, order: v })}
-              placeholder="Order"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>Row</Text>
+              <TextInput
+                style={styles.input}
+                value={form.row.toString()}
+                onChangeText={(v) => setForm({ ...form, row: v })}
+                placeholder="Row"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>Order</Text>
+              <TextInput
+                style={styles.input}
+                value={form.order.toString()}
+                onChangeText={(v) => setForm({ ...form, order: v })}
+                placeholder="Order"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
           </View>
-          <TouchableOpacity style={styles.createBtn} onPress={handleCreate}>
-            <Text style={styles.createBtnText}>Create Link</Text>
+          <TouchableOpacity style={styles.createBtn} onPress={handleCreate} activeOpacity={0.8}>
+            <Text style={styles.createBtnText}>🚀 Create Link</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       <FlatList
@@ -147,7 +218,13 @@ export default function SiteLinksScreen({ route }) {
         renderItem={renderLink}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>No site links yet</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyEmoji}>🔗</Text>
+            <Text style={styles.emptyText}>No site links yet</Text>
+            <Text style={styles.emptyHint}>Tap "+ Add Link" to create your first link</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -157,39 +234,57 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12,
+    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
   },
-  heading: { color: colors.text, fontSize: 28, fontWeight: '800' },
-  addBtn: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  heading: { color: colors.text, fontSize: 26, fontWeight: '900', letterSpacing: 0.5 },
+  subHeading: { color: colors.textMuted, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
+  addBtn: {
+    backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12,
+    shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+  },
+  addBtnCancel: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13, letterSpacing: 0.5 },
   formCard: {
-    backgroundColor: colors.surface, marginHorizontal: 20, borderRadius: 16, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: 'rgba(14,14,26,0.8)', marginHorizontal: 20, borderRadius: 18, padding: 18,
+    marginBottom: 14, borderWidth: 1, borderColor: 'rgba(229,9,20,0.15)',
+    shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
   },
+  formHeader: { marginBottom: 14 },
+  formTitle: { color: colors.text, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  colorLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5 },
+  fieldLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 4, letterSpacing: 0.5 },
   input: {
-    backgroundColor: colors.surfaceLight, borderRadius: 10, padding: 12, color: colors.text,
-    fontSize: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, color: colors.text,
+    fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 10,
   },
-  colorRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  colorOption: { width: 32, height: 32, borderRadius: 8 },
-  colorSelected: { borderWidth: 2, borderColor: '#fff' },
-  rowFields: { flexDirection: 'row', gap: 10 },
-  createBtn: { backgroundColor: colors.accent, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 4 },
-  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  list: { padding: 20, paddingTop: 0 },
+  colorRow: { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
+  colorOption: { width: 34, height: 34, borderRadius: 10 },
+  colorSelected: { borderWidth: 2.5, borderColor: '#fff', shadowColor: '#fff', shadowOpacity: 0.4, shadowRadius: 6, elevation: 3 },
+  rowFields: { flexDirection: 'row', gap: 12 },
+  createBtn: {
+    backgroundColor: colors.accent, borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 6,
+    shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 5,
+  },
+  createBtnText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
+  list: { padding: 20, paddingTop: 4 },
   linkCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14,
-    padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14,14,26,0.75)', borderRadius: 16,
+    padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden',
   },
-  colorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
+  colorBar: { width: 4, height: 40, borderRadius: 2, marginRight: 14 },
   linkInfo: { flex: 1 },
-  linkLabel: { color: colors.text, fontWeight: '600', fontSize: 14 },
-  linkUrl: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  linkMeta: { color: colors.textMuted, fontSize: 10, marginTop: 3 },
+  linkLabel: { color: colors.text, fontWeight: '700', fontSize: 15, letterSpacing: 0.3 },
+  linkUrl: { color: colors.textSecondary, fontSize: 12, marginTop: 3, fontFamily: 'monospace' },
+  linkMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
+  linkMeta: { color: colors.textMuted, fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.textMuted },
   delBtn: {
-    backgroundColor: colors.danger + '20', width: 32, height: 32, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(239,68,68,0.12)', width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
   },
-  delBtnText: { color: colors.danger, fontWeight: '700', fontSize: 16 },
-  emptyText: { color: colors.textMuted, textAlign: 'center', marginTop: 40, fontSize: 15 },
+  delBtnText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
+  emptyWrap: { alignItems: 'center', marginTop: 60 },
+  emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyText: { color: colors.textMuted, textAlign: 'center', fontSize: 16, fontWeight: '700' },
+  emptyHint: { color: colors.textMuted, textAlign: 'center', fontSize: 12, marginTop: 4, opacity: 0.6 },
 });

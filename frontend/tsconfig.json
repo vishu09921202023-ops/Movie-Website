@@ -34,13 +34,9 @@
   },
   "include": [
     "next-env.d.ts",
-    ".next4/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next5/types/**/*.ts",
-    ".next5/types/**/*.ts",
-    ".next6/types/**/*.ts",
-    ".next6/types/**/*.ts"
+    ".next8/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

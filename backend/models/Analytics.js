@@ -27,4 +27,7 @@ const analyticsSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
+// Compound index to enforce unique views per IP per movie
+analyticsSchema.index({ movieId: 1, event: 1, ipHash: 1 }, { unique: true, partialFilterExpression: { event: 'view' } });
+
 module.exports = mongoose.model('Analytics', analyticsSchema);

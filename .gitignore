@@ -16,6 +16,9 @@ yarn.lock
 .next3/
 .next4/
 .next5/
+.next6/
+.next7/
+.next8/
 build/
 dist/
 out/

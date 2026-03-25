@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { movieAPI } from '@/lib/api';
@@ -8,6 +9,14 @@ import Pagination from '@/components/Pagination';
 import { Movie, MovieResponse } from '@/lib/types';
 
 export default function Browse() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <BrowseContent />
+    </Suspense>
+  );
+}
+
+function BrowseContent() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<MovieResponse | null>(null);
   const [loading, setLoading] = useState(true);

@@ -64,14 +64,27 @@ router.get('/movies', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/movies/:id', verifyToken, async (req, res) => {
+  try {
+    const movie = await Movie.findById(req.params.id);
+    if (!movie) {
+      return res.status(404).json({ error: 'Movie not found' });
+    }
+    res.json(movie);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/movies', verifyToken, async (req, res) => {
   try {
     const data = movieSchema.parse(req.body);
-    const slug = data.cleanTitle.toLowerCase().replace(/\s+/g, '-');
+    const slug = data.cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
     const movie = new Movie({
       ...data,
-      slug,
+      type: data.categories?.length ? data.categories[0] : (data.type || 'movie'),
+      slug: slug || `movie-${Date.now()}`,
       postedAt: new Date(),
     });
 
@@ -79,7 +92,8 @@ router.post('/movies', verifyToken, async (req, res) => {
     res.status(201).json(movie);
   } catch (error) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: 'Invalid input' });
+      const messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      return res.status(400).json({ error: messages });
     }
     res.status(500).json({ error: error.message });
   }
@@ -95,7 +109,8 @@ router.put('/movies/:id', verifyToken, async (req, res) => {
     res.json(movie);
   } catch (error) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: 'Invalid input' });
+      const messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      return res.status(400).json({ error: messages });
     }
     res.status(500).json({ error: error.message });
   }
@@ -117,61 +132,171 @@ router.get('/analytics', verifyToken, async (req, res) => {
   try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
     const dailyViews = await Analytics.aggregate([
-      {
-        $match: {
-          event: 'view',
-          timestamp: { $gte: thirtyDaysAgo },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { _id: 1 },
-      },
+      { $match: { event: 'view', timestamp: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const dailyDownloads = await Analytics.aggregate([
+      { $match: { event: 'download', timestamp: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
     ]);
 
     const topMovies = await Analytics.aggregate([
-      {
-        $match: { event: 'download' },
-      },
-      {
-        $group: {
-          _id: '$movieId',
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { count: -1 },
-      },
-      {
-        $limit: 10,
-      },
-      {
-        $lookup: {
-          from: 'movies',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'movie',
-        },
-      },
+      { $match: { event: 'download' } },
+      { $group: { _id: '$movieId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+      { $lookup: { from: 'movies', localField: '_id', foreignField: '_id', as: 'movie' } },
     ]);
 
-    const totalMovies = await Movie.countDocuments();
+    const [totalMovies, totalSeries, totalAnime, totalKdrama, totalDocumentary] = await Promise.all([
+      Movie.countDocuments({ type: 'movie' }),
+      Movie.countDocuments({ type: 'series' }),
+      Movie.countDocuments({ type: 'anime' }),
+      Movie.countDocuments({ type: 'kdrama' }),
+      Movie.countDocuments({ type: 'documentary' }),
+    ]);
+    const totalAll = await Movie.countDocuments();
     const totalViews = await Analytics.countDocuments({ event: 'view' });
     const totalDownloads = await Analytics.countDocuments({ event: 'download' });
-    const totalAnime = await Movie.countDocuments({ type: 'anime' });
+    const todayViews = await Analytics.countDocuments({ event: 'view', timestamp: { $gte: todayStart } });
+    const todayDownloads = await Analytics.countDocuments({ event: 'download', timestamp: { $gte: todayStart } });
+    const uniqueVisitors = await Analytics.distinct('ipHash', { event: 'view' });
+
+    // Per-category views
+    const categoryViews = await Analytics.aggregate([
+      { $match: { event: 'view' } },
+      { $group: { _id: '$contentType', count: { $sum: 1 } } },
+    ]);
+    const categoryDownloads = await Analytics.aggregate([
+      { $match: { event: 'download' } },
+      { $group: { _id: '$contentType', count: { $sum: 1 } } },
+    ]);
+
+    const catViewMap = {};
+    categoryViews.forEach(c => { catViewMap[c._id || 'movie'] = c.count; });
+    const catDlMap = {};
+    categoryDownloads.forEach(c => { catDlMap[c._id || 'movie'] = c.count; });
 
     res.json({
-      stats: { totalMovies, totalViews, totalDownloads, totalAnime },
+      stats: {
+        totalAll, totalMovies, totalSeries, totalAnime, totalKdrama, totalDocumentary,
+        totalViews, totalDownloads, todayViews, todayDownloads,
+        uniqueVisitors: uniqueVisitors.length,
+      },
+      categories: {
+        movie: { count: totalMovies, views: catViewMap.movie || 0, downloads: catDlMap.movie || 0 },
+        series: { count: totalSeries, views: catViewMap.series || 0, downloads: catDlMap.series || 0 },
+        anime: { count: totalAnime, views: catViewMap.anime || 0, downloads: catDlMap.anime || 0 },
+        kdrama: { count: totalKdrama, views: catViewMap.kdrama || 0, downloads: catDlMap.kdrama || 0 },
+        documentary: { count: totalDocumentary, views: catViewMap.documentary || 0, downloads: catDlMap.documentary || 0 },
+      },
       dailyViews,
+      dailyDownloads,
       topMovies,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Per-category content listing with search
+router.get('/content/:type', verifyToken, async (req, res) => {
+  try {
+    const { type } = req.params;
+    const { page = 1, search } = req.query;
+    const limit = 20;
+    const skip = (parseInt(page) - 1) * limit;
+    let query = { type };
+    if (search) query.title = { $regex: search, $options: 'i' };
+
+    const items = await Movie.find(query).skip(skip).limit(limit).sort({ createdAt: -1 });
+    const total = await Movie.countDocuments(query);
+
+    res.json({
+      items,
+      pagination: { page: parseInt(page), limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Per-movie detailed analytics
+router.get('/analytics/movie/:id', verifyToken, async (req, res) => {
+  try {
+    const movieObjId = new mongoose.Types.ObjectId(req.params.id);
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const movie = await Movie.findById(movieObjId);
+    if (!movie) return res.status(404).json({ error: 'Movie not found' });
+
+    const [totalViews, totalDownloads, uniqueViewers, dailyViews, dailyDownloads, byQuality] = await Promise.all([
+      Analytics.countDocuments({ movieId: movieObjId, event: 'view' }),
+      Analytics.countDocuments({ movieId: movieObjId, event: 'download' }),
+      Analytics.distinct('ipHash', { movieId: movieObjId, event: 'view' }),
+      Analytics.aggregate([
+        { $match: { movieId: movieObjId, event: 'view', timestamp: { $gte: sevenDaysAgo } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Analytics.aggregate([
+        { $match: { movieId: movieObjId, event: 'download', timestamp: { $gte: sevenDaysAgo } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Analytics.aggregate([
+        { $match: { movieId: movieObjId, event: 'download' } },
+        { $group: { _id: '$quality', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+    ]);
+
+    res.json({
+      movie: { _id: movie._id, title: movie.title, cleanTitle: movie.cleanTitle, type: movie.type, posterUrl: movie.posterUrl, releaseYear: movie.releaseYear, quality: movie.quality, genres: movie.genres, language: movie.language, views: movie.views, slug: movie.slug },
+      analytics: {
+        totalViews,
+        totalDownloads,
+        uniqueViewers: uniqueViewers.length,
+        dailyViews: dailyViews.map(d => ({ date: d._id, count: d.count })),
+        dailyDownloads: dailyDownloads.map(d => ({ date: d._id, count: d.count })),
+        byQuality,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Search movies with analytics data
+router.get('/search', verifyToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 1) return res.json({ results: [] });
+
+    const movies = await Movie.find({
+      $or: [
+        { title: { $regex: q, $options: 'i' } },
+        { cleanTitle: { $regex: q, $options: 'i' } },
+        { tags: { $regex: q, $options: 'i' } },
+      ]
+    }).limit(20).select('_id title cleanTitle type categories releaseYear posterUrl views');
+
+    // Attach analytics counts
+    const results = await Promise.all(movies.map(async (m) => {
+      const [viewCount, dlCount] = await Promise.all([
+        Analytics.countDocuments({ movieId: m._id, event: 'view' }),
+        Analytics.countDocuments({ movieId: m._id, event: 'download' }),
+      ]);
+      return { ...m.toObject(), analyticsViews: viewCount, analyticsDownloads: dlCount };
+    }));
+
+    res.json({ results });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
