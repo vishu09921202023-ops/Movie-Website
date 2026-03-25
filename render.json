@@ -1,0 +1,30 @@
+{
+  "name": "Movie-Website",
+  "description": "VN Movies - Watch and Download Movies",
+  "repository": "https://github.com/your-username/Movie-Website",
+  "keywords": ["movies", "nextjs", "nodejs", "dyanmodb"],
+  "buildCommand": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+  "startCommand": "node backend/server.js & cd frontend && npx next start -p 3020",
+  "env": [
+    {
+      "key": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "key": "PORT",
+      "value": "5000"
+    },
+    {
+      "key": "AWS_REGION",
+      "value": "ap-south-1"
+    },
+    {
+      "key": "AWS_ACCESS_KEY_ID",
+      "value": "your-key-here"
+    },
+    {
+      "key": "AWS_SECRET_ACCESS_KEY",
+      "value": "your-secret-here"
+    }
+  ]
+}
