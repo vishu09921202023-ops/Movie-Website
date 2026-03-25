@@ -49,20 +49,30 @@ async function migrateCollection(db, collectionName, tableName, transformFn) {
   console.log(`  ✓ Migrated ${ok}/${docs.length} (${fail} failed)`);
 }
 
+function deepSerialize(v) {
+  if (v == null) return v;
+  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Map) return deepSerialize(Object.fromEntries(v.entries()));
+  if (typeof v === 'object' && (v.constructor?.name === 'ObjectId' || v._bsontype === 'ObjectId')) return v.toString();
+  if (Array.isArray(v)) return v.map(deepSerialize);
+  if (typeof v === 'object') {
+    const out = {};
+    for (const [key, val] of Object.entries(v)) {
+      out[key] = deepSerialize(val);
+    }
+    return out;
+  }
+  return v;
+}
+
 function serializeDoc(doc) {
   const item = {};
   for (const [k, v] of Object.entries(doc)) {
     if (k === '_id') {
       item.id = v.toString();
       item._id = v.toString();
-    } else if (v instanceof Date) {
-      item[k] = v.toISOString();
-    } else if (v instanceof Map) {
-      item[k] = Object.fromEntries(v.entries());
-    } else if (v != null && typeof v === 'object' && v.constructor?.name === 'ObjectId') {
-      item[k] = v.toString();
     } else {
-      item[k] = v;
+      item[k] = deepSerialize(v);
     }
   }
   return item;
