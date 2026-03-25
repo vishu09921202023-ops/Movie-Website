@@ -55,6 +55,8 @@ export default function MovieFormScreen({ route, navigation }) {
   const isEditing = !!movieId;
 
   const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error'
+  const [saveMessage, setSaveMessage] = useState('');
   const [form, setForm] = useState({
     title: '', cleanTitle: '', description: '', releaseYear: '', duration: '',
     posterUrl: '', backdropUrl: '', imdbRating: '', telegramUrl: '',
@@ -121,18 +123,25 @@ export default function MovieFormScreen({ route, navigation }) {
   };
 
   const updateDownloadLink = (index, key, value) => {
-    const updated = [...form.downloadLinks];
-    updated[index] = { ...updated[index], [key]: value };
-    setForm({ ...form, downloadLinks: updated });
+    setSaveStatus(null);
+    setForm(prev => {
+      const updated = [...prev.downloadLinks];
+      updated[index] = { ...updated[index], [key]: value };
+      return { ...prev, downloadLinks: updated };
+    });
   };
 
   const addDownloadLink = () => {
-    setForm({ ...form, downloadLinks: [...form.downloadLinks, { label: '', quality: '1080p', url: '', size: '' }] });
+    setSaveStatus(null);
+    setForm(prev => ({ ...prev, downloadLinks: [...prev.downloadLinks, { label: '', quality: '1080p', url: '', size: '' }] }));
   };
 
   const removeDownloadLink = (index) => {
-    if (form.downloadLinks.length <= 1) return;
-    setForm({ ...form, downloadLinks: form.downloadLinks.filter((_, i) => i !== index) });
+    setSaveStatus(null);
+    setForm(prev => {
+      if (prev.downloadLinks.length <= 1) return prev;
+      return { ...prev, downloadLinks: prev.downloadLinks.filter((_, i) => i !== index) };
+    });
   };
 
   const addTag = () => {
@@ -147,8 +156,12 @@ export default function MovieFormScreen({ route, navigation }) {
   const handleSave = async () => {
     if (!form.title.trim()) { Alert.alert('Error', 'Title is required'); return; }
     setLoading(true);
+    setSaveStatus(null);
+    setSaveMessage('');
     try {
       const cleanTitle = form.cleanTitle.trim() || form.title.trim();
+      const filteredLinks = form.downloadLinks.filter((l) => l.url && l.url.trim());
+      const filteredScreenshots = form.screenshots.filter((s) => s && s.trim());
       const payload = {
         title: form.title.trim(),
         cleanTitle,
@@ -169,20 +182,33 @@ export default function MovieFormScreen({ route, navigation }) {
         qualities: form.qualities.length ? form.qualities : undefined,
         audioLanguages: form.audioLanguages.length ? form.audioLanguages : undefined,
         tags: form.tags.length ? form.tags : undefined,
-        screenshots: form.screenshots.filter((s) => s.trim()),
-        downloadLinks: form.downloadLinks.filter((l) => l.url.trim()),
+        screenshots: filteredScreenshots,
+        downloadLinks: filteredLinks,
       };
       const res = isEditing
         ? await api.updateMovie(token, movieId, payload)
         : await api.createMovie(token, payload);
       if (res.data) {
-        Alert.alert('Success', isEditing ? 'Movie updated' : 'Movie created');
-        navigation.goBack();
+        const dlCount = filteredLinks.length;
+        setSaveStatus('success');
+        setSaveMessage(
+          isEditing
+            ? `Saved! ${dlCount} download link${dlCount !== 1 ? 's' : ''} saved.`
+            : 'Movie created!'
+        );
+        if (isEditing) {
+          // Stay on form and reload data to confirm save
+          await loadMovie();
+        } else {
+          navigation.goBack();
+        }
       } else {
-        Alert.alert('Error', res.error || 'Failed to save');
+        setSaveStatus('error');
+        setSaveMessage(res.error || 'Failed to save');
       }
     } catch (e) {
-      Alert.alert('Error', e.message || 'Failed to save movie');
+      setSaveStatus('error');
+      setSaveMessage(e.message || 'Failed to save movie');
     } finally {
       setLoading(false);
     }
@@ -336,6 +362,12 @@ export default function MovieFormScreen({ route, navigation }) {
           </View>
         </Animated.View>
 
+        {saveStatus && (
+          <View style={[styles.statusBanner, saveStatus === 'success' ? styles.statusSuccess : styles.statusError]}>
+            <Text style={styles.statusText}>{saveStatus === 'success' ? '✅' : '❌'} {saveMessage}</Text>
+          </View>
+        )}
+
         <Animated.View style={{ opacity: saveBtnAnim, transform: [{ scale: Animated.multiply(saveBtnAnim, pressAnim) }] }}>
           <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.6 }]} onPress={handleSave} disabled={loading}
             onPressIn={() => Animated.spring(pressAnim, { toValue: 0.95, friction: 8, useNativeDriver: true }).start()}
@@ -345,6 +377,12 @@ export default function MovieFormScreen({ route, navigation }) {
             <Animated.View style={[styles.saveBtnGlow, { opacity: glowAnim }]} />
           </TouchableOpacity>
         </Animated.View>
+
+        {isEditing && saveStatus === 'success' && (
+          <TouchableOpacity style={styles.goBackBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+            <Text style={styles.goBackText}>← Back to Movies List</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -421,4 +459,20 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: -5, left: '20%', right: '20%', height: 20,
     backgroundColor: colors.accent, borderRadius: 10,
   },
+  statusBanner: {
+    borderRadius: 12, padding: 14, marginBottom: 12, alignItems: 'center',
+    borderWidth: 1,
+  },
+  statusSuccess: {
+    backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgba(16,185,129,0.3)',
+  },
+  statusError: {
+    backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.3)',
+  },
+  statusText: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  goBackBtn: {
+    marginTop: 12, padding: 14, borderRadius: 12, alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: colors.border,
+  },
+  goBackText: { color: colors.textMuted, fontWeight: '600', fontSize: 14 },
 });
