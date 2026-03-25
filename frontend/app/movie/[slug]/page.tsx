@@ -263,10 +263,7 @@ export default function MovieDetail() {
                   <div key={i} className="relative overflow-hidden bg-gradient-to-r from-white/[0.03] to-white/[0.01] border border-white/5 rounded-xl p-4 animate-fade-in-up hover:border-emerald-500/20 transition-all duration-300 group/dl" style={{ animationDelay: `${i * 60}ms` }}>
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/0 to-emerald-600/0 group-hover/dl:from-emerald-600/[0.03] group-hover/dl:to-transparent transition-all duration-500" />
                     <p className="text-gray-300 text-sm mb-3 font-medium relative z-10">
-                      {movie.cleanTitle} ({movie.releaseYear}) [{movie.audioLanguages?.join('-') || 'Multi Audio'}]:{' '}
-                      <span className="text-yellow-400 font-bold">{link.quality}</span>
-                      {link.size ? ` — ${movie.source || 'WEB-DL'}, [${link.size}]` : ''}
-                      {link.label ? ` — ${link.label}` : ''}
+                      <span className="text-yellow-400 font-bold">{link.label || link.quality}</span>
                     </p>
                     <button
                       onClick={() => handleDownload(link)}
