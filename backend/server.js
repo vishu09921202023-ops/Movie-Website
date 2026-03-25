@@ -33,6 +33,10 @@ app.use(apiLimiter);
 app.use('/api/movies', movieRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Convenience alias: /api/sitelinks/public → /api/movies/sitelinks/public
+const sitelinkRoutes = require('./routes/sitelinks');
+app.use('/api/sitelinks', sitelinkRoutes);
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
 });
